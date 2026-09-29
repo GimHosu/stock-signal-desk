@@ -202,6 +202,10 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
 .scan-progress .bar i.indet { width: 35%; animation: slide 1.2s ease-in-out infinite; }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
 [hidden] { display: none !important; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; margin-bottom: 8px; }
+.check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.run-log { font-size: 12px; color: var(--text-2); background: var(--surface-2); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; line-height: 1.6; }
+.run-log .bad { color: var(--bad); }
 .notice { margin: 12px 16px 0; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); font-size: 13px; line-height: 1.7; }
 .notice .btn { margin-top: 6px; }
 table.disc { width: 100%; border-collapse: collapse; }
@@ -373,6 +377,10 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
     <div class="field">
       <label>동기화 · 텔레그램 알림</label>
       <div class="hint" id="syncStatus" style="font-size:12px;margin:0 0 8px"></div>
+      <div id="alertOpts">
+        <label class="check"><input type="checkbox" id="sDaily"> 신호 변경이 없어도 매일 아침 요약 받기</label>
+        <div class="run-log" id="runLog"></div>
+      </div>
       <div class="actions" id="alertBtns">
         <button type="button" class="btn" id="btnTestAlert">테스트 알림 보내기</button>
         <button type="button" class="btn" id="btnRunAlert">지금 신호 점검</button>
@@ -386,7 +394,7 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
         <button type="button" class="btn" id="btnImport">가져오기</button>
         <input type="file" id="fileImport" accept="application/json" hidden>
       </div>
-      <div class="hint">보유 종목은 이 브라우저에만 저장됩니다. 다른 기기에서 쓰려면 내보내기/가져오기를 이용하세요.</div>
+      <div class="hint">종목 목록과 설정을 JSON 파일로 백업하거나 복원합니다. 서버 동기화를 쓰지 않을 때는 다른 기기로 옮기는 데 쓰세요.</div>
     </div>
     <div class="dlg-actions">
       <button type="button" class="btn" id="btnSetCancel">취소</button>
@@ -822,9 +830,35 @@ document.getElementById('btnSettings').onclick = () => {
     ? '✓ <b>서버에 저장 중</b> — 모든 기기에서 같은 목록이 보이고, 평일 오전 7시쯤 장 마감 신호가 바뀐 종목을 텔레그램으로 알려 드립니다.'
     : '이 브라우저에만 저장 중입니다. 텔레그램 알림과 기기 간 동기화를 쓰려면 README의 <b>알림 설정</b>을 따라 주세요.';
   document.getElementById('alertBtns').style.display = on ? '' : 'none';
+  document.getElementById('alertOpts').style.display = on ? '' : 'none';
+  document.getElementById('sDaily').checked = !!settings.dailySummary;
   document.getElementById('alertResult').textContent = '';
   dlgS.showModal();
+  if (on) loadRunLog();
 };
+
+// 마지막 자동/수동 점검 기록 — "알림이 안 온 게 변경이 없어서인지, 실행이 안 돼서인지" 구분용
+function describeRun(r) {
+  if (!r) return null;
+  const when = new Date(r.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  if (!r.ok) return `${when} · <span class="bad">⚠️ 실패: ${esc(r.error || '알 수 없는 오류')}</span>`;
+  const what = r.live ? '장중이라 확정 신호 없음'
+    : !r.fresh ? '새 거래일 없음 (휴장일)'
+    : `${r.day} 확정 신호 · 변경 ${r.changes.length}건${r.baseline ? ` · 첫 기록 ${r.baseline}종목` : ''}`;
+  const sent = r.sent ? '알림 보냄' : '변경이 없어 알림 안 보냄';
+  return `${when} · ${r.checked}종목 · ${what} · ${sent}${r.errors && r.errors.length ? ` · <span class="bad">조회 실패 ${r.errors.length}</span>` : ''}`;
+}
+async function loadRunLog() {
+  const el = document.getElementById('runLog');
+  el.innerHTML = '<span class="spinner"></span> 점검 기록 확인 중';
+  try {
+    const { status, j } = await cloud.req('GET', '/api/alert');
+    if (status !== 200) throw new Error(j.error || `오류 ${status}`);
+    const cron = describeRun(j.cron), manual = describeRun(j.manual);
+    el.innerHTML = `<b>마지막 자동 점검</b><br>${cron || '아직 기록이 없습니다. 평일 오전 7~8시에 자동으로 실행됩니다. 하루가 지나도 기록이 없다면 Vercel의 Cron Jobs 로그를 확인해 주세요.'}`
+      + (manual ? `<br><b>마지막 수동 점검</b><br>${manual}` : '');
+  } catch (e) { el.innerHTML = `<span class="bad">점검 기록을 불러오지 못했습니다: ${esc(e.message)}</span>`; }
+}
 async function alertAction(action, btn) {
   const out = document.getElementById('alertResult');
   btn.disabled = true; out.textContent = '처리 중…';
@@ -839,6 +873,7 @@ async function alertAction(action, btn) {
     else out.textContent = `${j.checked}개 종목 점검 · 신호 변경 ${j.changes.length}건${j.live ? ' (장중이라 잠정 신호)' : ''} · 결과를 텔레그램으로 보냈습니다.`;
   } catch (e) { out.textContent = `실패: ${e.message}`; }
   btn.disabled = false;
+  if (action === 'run') loadRunLog();
 }
 document.getElementById('btnTestAlert').onclick = (e) => alertAction('test', e.currentTarget);
 document.getElementById('btnRunAlert').onclick = (e) => alertAction('run', e.currentTarget);
@@ -847,6 +882,7 @@ document.getElementById('formSettings').addEventListener('submit', (e) => {
   e.preventDefault();
   settings.stopPct = -Math.abs(parseFloat(document.getElementById('sStop').value) || 8);
   settings.takePct = Math.abs(parseFloat(document.getElementById('sTake').value) || 25);
+  settings.dailySummary = document.getElementById('sDaily').checked;
   store.set('ssd.settings', settings); cloud.save(); dlgS.close(); reanalyze(); render();
 });
 document.getElementById('btnExport').onclick = () => {

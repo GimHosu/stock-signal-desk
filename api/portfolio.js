@@ -20,6 +20,7 @@ module.exports = async (req, res) => {
       const settings = {
         stopPct: -Math.abs(Number(s.stopPct) || 8),
         takePct: Math.abs(Number(s.takePct) || 25),
+        dailySummary: !!s.dailySummary,   // 신호 변경이 없어도 매일 아침 요약 알림
       };
       await setJSON('portfolio', { holdings, settings, updatedAt: new Date().toISOString() });
       return res.status(200).json({ ok: true });

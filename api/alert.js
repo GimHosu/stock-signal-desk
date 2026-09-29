@@ -2,6 +2,7 @@
 //  - GET  (Vercel Cron, Authorization: Bearer CRON_SECRET) → 매일 장 마감 후 신호가 바뀐 종목만 발송
 //  - POST {action:'test'} (x-app-password) → 테스트 메시지 / TELEGRAM_CHAT_ID 찾기
 //  - POST {action:'run'}  (x-app-password) → 지금 점검하고 결과를 항상 발송
+//  - GET  (x-app-password) → 마지막 자동/수동 점검 기록
 const { missingConfig, getJSON, setJSON, checkPassword, fetchSeries, telegram, findChats } = require('../lib/server.js');
 const { runCheck } = require('../lib/alerts.js');
 
@@ -10,6 +11,13 @@ module.exports = async (req, res) => {
   const secret = process.env.CRON_SECRET;
   const isCron = !!secret && req.headers.authorization === `Bearer ${secret}`;
   if (!isCron && !checkPassword(req)) return res.status(401).json({ ok: false, error: '인증에 실패했습니다.' });
+
+  // 설정 화면: 마지막 자동/수동 점검 기록
+  if (!isCron && req.method === 'GET') {
+    try {
+      return res.status(200).json({ ok: true, cron: await getJSON('lastRun:cron', null), manual: await getJSON('lastRun:manual', null) });
+    } catch (e) { return res.status(500).json({ ok: false, error: e.message }); }
+  }
 
   const action = isCron ? 'daily' : (req.body && req.body.action);
   const host = process.env.VERCEL_PROJECT_PRODUCTION_URL;
