@@ -27,6 +27,7 @@ $js = @"
   const UNIVERSE = [
 $($lines -join "`n")
   ];
+  UNIVERSE.updated = '$today';
   if (typeof module !== 'undefined' && module.exports) module.exports = UNIVERSE;
   else root.UNIVERSE = UNIVERSE;
 })(this);

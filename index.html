@@ -202,6 +202,8 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
 .scan-progress .bar i.indet { width: 35%; animation: slide 1.2s ease-in-out infinite; }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
 [hidden] { display: none !important; }
+.notice { margin: 12px 16px 0; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); font-size: 13px; line-height: 1.7; }
+.notice .btn { margin-top: 6px; }
 table.disc { width: 100%; border-collapse: collapse; }
 table.disc th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 table.disc td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
@@ -287,9 +289,13 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
   <section id="viewDiscover" hidden>
     <div class="card">
       <div class="panel-head">
-        <div><h2>종목 발굴 · S&amp;P 500</h2><div class="count" id="scanMeta">스캔 결과를 불러오는 중…</div></div>
-        <button class="btn" id="btnScan">지금 스캔</button>
+        <div><h2>종목 발굴 · S&amp;P 500</h2><div class="count" id="scanMeta">스캔 결과를 불러오는 중…</div><div class="count" id="uniMeta"></div></div>
+        <div class="actions">
+          <button class="btn" id="btnUniverse" title="위키백과에서 최신 S&amp;P 500 편입·편출 종목을 반영합니다">목록 갱신</button>
+          <button class="btn" id="btnScan">지금 스캔</button>
+        </div>
       </div>
+      <div class="notice" id="uniNotice" hidden></div>
       <div class="scan-progress" id="scanProgress" hidden><div class="bar"><i id="scanBar"></i></div><span id="scanText"></span></div>
       <div class="filters">
         <div class="dist" id="dist"></div>
@@ -879,7 +885,61 @@ let scanData = null, scanLoaded = false, scanning = false;
 const expanded = new Set();
 const disc = Object.assign({ min: '40', sector: '', sort: 'score', q: '' }, store.get('ssd.discFilter', {}));
 
+// 스캔 대상 목록: 서버 모드는 서버에 저장된 목록, 로컬 모드는 브라우저에 저장된 목록, 둘 다 없으면 앱 내장 목록
+let uniInfo = null;                                   // { source: 'saved' | 'builtin', at, count }
+let localUniverse = store.get('ssd.universe', null);  // 로컬 모드에서 갱신한 목록 { at, list }
+async function loadUniverseInfo() {
+  if (cloud.mode === 'cloud') {
+    try { const { status, j } = await cloud.req('GET', '/api/universe'); if (status === 200) uniInfo = j; } catch {}
+  } else {
+    uniInfo = localUniverse
+      ? { source: 'saved', at: localUniverse.at, count: localUniverse.list.length }
+      : { source: 'builtin', at: null, count: Scan.UNIVERSE.length };
+  }
+  renderUniMeta();
+}
+function renderUniMeta() {
+  const el = document.getElementById('uniMeta');
+  el.textContent = !uniInfo ? '' : `대상 목록 ${uniInfo.count}종목 · ${uniInfo.source === 'saved'
+    ? `${new Date(uniInfo.at).toLocaleDateString('ko-KR')} 갱신`
+    : `앱 내장 목록 (${Scan.UNIVERSE.updated || ''} 기준)`}`;
+}
+async function updateUniverse() {
+  const btn = document.getElementById('btnUniverse'), note = document.getElementById('uniNotice');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 갱신 중';
+  try {
+    let r;
+    if (cloud.mode === 'cloud') {
+      const { status, j } = await cloud.req('POST', '/api/universe');
+      if (status !== 200) throw new Error(j.error || `오류 ${status}`);
+      r = j;
+    } else {
+      const list = await Scan.fetchUniverse(fetch);
+      r = { ...Scan.diffUniverse(localUniverse ? localUniverse.list : Scan.UNIVERSE, list), count: list.length, at: new Date().toISOString() };
+      localUniverse = { at: r.at, list };
+      store.set('ssd.universe', localUniverse);
+    }
+    uniInfo = { source: 'saved', at: r.at, count: r.count };
+    renderUniMeta();
+    const names = (arr) => arr.map(([s, n]) => `<b>${esc(s)}</b> ${esc(n)}`).join(', ');
+    note.innerHTML = r.added.length || r.removed.length
+      ? `S&amp;P 500 목록을 갱신했습니다 (${r.count}종목).<br>
+         ${r.added.length ? `➕ 편입 ${r.added.length}: ${names(r.added)}<br>` : ''}
+         ${r.removed.length ? `➖ 편출 ${r.removed.length}: ${names(r.removed)}<br>` : ''}
+         새 목록은 다음 스캔부터 반영됩니다.<br><button class="btn" id="btnScanAfterUni">지금 스캔</button>`
+      : `변경된 종목이 없습니다. 현재 목록이 최신입니다 (${r.count}종목).`;
+    const again = document.getElementById('btnScanAfterUni');
+    if (again) again.onclick = () => { note.hidden = true; scanNow(); };
+  } catch (e) {
+    note.textContent = `목록 갱신 실패: ${e.message}`;
+  }
+  note.hidden = false;
+  btn.disabled = false; btn.textContent = '목록 갱신';
+}
+document.getElementById('btnUniverse').onclick = updateUniverse;
+
 async function loadScan() {
+  loadUniverseInfo();
   if (cloud.mode === 'cloud') {
     try { const { status, j } = await cloud.req('GET', '/api/scan'); if (status === 200 && j.results) scanData = j; } catch {}
   } else {
@@ -897,13 +957,13 @@ async function scanNow() {
   try {
     if (cloud.mode === 'cloud') {
       bar.className = 'indet';
-      txt.textContent = '서버에서 503개 종목을 스캔하는 중… (약 20~40초)';
+      txt.textContent = `서버에서 ${uniInfo ? uniInfo.count : 503}개 종목을 스캔하는 중… (약 20~40초)`;
       const { status, j } = await cloud.req('POST', '/api/scan');
       if (status !== 200) throw new Error(j.error || `오류 ${status}`);
       scanData = j;
     } else {
       scanData = await Scan.runScan({
-        fetchSeries, concurrency: 6, previous: scanData,
+        fetchSeries, universe: localUniverse && localUniverse.list, concurrency: 6, previous: scanData,
         onProgress: (d, t) => { bar.style.width = `${d / t * 100}%`; txt.textContent = `이 브라우저에서 스캔하는 중… ${d} / ${t}`; },
       });
       store.set('ssd.scan', scanData);

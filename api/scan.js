@@ -18,7 +18,8 @@ module.exports = async (req, res) => {
       return res.status(200).json((await getJSON('scan', null)) || { results: null });
     }
     const previous = await getJSON('scan', null);
-    const scan = await runScan({ fetchSeries, concurrency: 8, previous });
+    const saved = await getJSON('universe', null);   // '목록 갱신'으로 저장한 목록이 있으면 그것을, 없으면 내장 목록을 스캔
+    const scan = await runScan({ fetchSeries, universe: saved && saved.list, concurrency: 8, previous });
     if (scan.results.length < scan.total / 2) {
       throw new Error(`시세 조회 실패가 많습니다 (${scan.errors.length}/${scan.total}). 잠시 후 다시 시도해 주세요.`);
     }
