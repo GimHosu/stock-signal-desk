@@ -16,8 +16,8 @@ module.exports = async (req, res) => {
       });
     }
     const body = await r.text();
-    // 15분 동안 CDN 캐시 → 같은 종목을 여러 번 열어도 Yahoo 호출이 늘지 않음
-    res.setHeader('Cache-Control', 's-maxage=900, stale-while-revalidate=3600');
+    // 30초 CDN 캐시 → 장중 실시간성은 유지하면서 같은 종목의 중복 Yahoo 호출은 줄임
+    res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     return res.status(200).send(body);
   } catch (e) {

@@ -179,6 +179,13 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .err { color: var(--bad); font-size: 12px; min-height: 1em; }
 
+.mkt { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; font-weight: 500; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; }
+.mkt i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.mkt.open { color: var(--good); background: var(--good-bg); border-color: transparent; }
+.mkt.open i { background: var(--good); animation: pulse 1.6s ease-in-out infinite; }
+.mkt.pre i, .mkt.post i { background: var(--warn); }
+@keyframes pulse { 50% { opacity: .3; } }
+.live-note { font-size: 12px; color: var(--text-2); margin: -6px 0 4px; }
 .stack { display: grid; gap: 16px; min-width: 0; }
 .count { color: var(--muted); font-size: 12px; }
 .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; border-radius: 9px; background: var(--surface-2); }
@@ -211,6 +218,7 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
     <div>
       <h1>Stock Signal Desk</h1>
       <div class="sub" id="updated">보유·관심 미국 주식 일일 기술적 분석</div>
+      <div class="mkt" id="mkt" style="display:none"></div>
     </div>
     <div class="actions">
       <button class="btn" id="btnRefresh">새로고침</button>
@@ -328,6 +336,20 @@ async function fetchSeries(symbol) {
     out.close.push(q.close[i]); out.high.push(q.high[i]); out.low.push(q.low[i]); out.volume.push(q.volume[i] || 0);
   });
   if (out.close.length < 60) throw new Error('분석에 필요한 거래일 데이터가 부족합니다.');
+
+  // 장중에는 일봉 마지막 값보다 meta.regularMarketPrice 가 더 최신이므로 오늘 봉에 반영한다.
+  const mt = r.meta, tz = mt.exchangeTimezoneName || 'America/New_York';
+  const dayKey = (dt) => dt.toLocaleDateString('en-CA', { timeZone: tz });
+  if (mt.regularMarketPrice && mt.regularMarketTime) {
+    const lt = new Date(mt.regularMarketTime * 1000), L = out.close.length - 1, px = mt.regularMarketPrice;
+    if (dayKey(lt) === dayKey(out.date[L])) {
+      out.close[L] = px; out.high[L] = Math.max(out.high[L], px); out.low[L] = Math.min(out.low[L], px);
+    } else if (lt > out.date[L]) {
+      out.date.push(lt); out.close.push(px); out.high.push(px); out.low.push(px); out.volume.push(mt.regularMarketVolume || 0);
+    }
+    out.priceTime = lt;
+  }
+  out.period = mt.currentTradingPeriod;
   return out;
 }
 
@@ -475,9 +497,40 @@ function previousSignal(symbol) {
 }
 
 // ────────────────────────── 새로고침 ──────────────────────────
-async function refreshAll() {
+// ────────────────────────── 장 상태 ──────────────────────────
+// Yahoo 의 currentTradingPeriod (pre / regular / post, 유닉스 초) 로 지금이 장중인지 판단한다.
+function marketState() {
+  const d = Object.values(data).find(x => x.period);
+  const p = d && d.period, now = Date.now() / 1000;
+  if (!p) return { key: 'unknown' };
+  const inP = (x) => x && now >= x.start && now < x.end;
+  if (inP(p.regular)) return { key: 'open', label: '장중', d };
+  if (inP(p.pre)) return { key: 'pre', label: '프리마켓', next: p.regular.start, d };
+  if (inP(p.post)) return { key: 'post', label: '애프터마켓', d };
+  return { key: 'closed', label: '장 마감', next: p.regular.start > now ? p.regular.start : null, d };
+}
+const kstTime = (sec) => new Date(sec * 1000).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' });
+const LIVE_EVERY = 60 * 1000, IDLE_EVERY = 30 * 60 * 1000;
+const refreshEvery = () => marketState().key === 'open' ? LIVE_EVERY : IDLE_EVERY;
+
+function renderMarket() {
+  const el = document.getElementById('mkt'), m = marketState();
+  if (m.key === 'unknown') { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.className = `mkt ${m.key}`;
+  const next = m.next ? ` · 정규장 개장 ${kstTime(m.next)}` : '';
+  el.innerHTML = m.key === 'open'
+    ? `<i></i>장중 실시간 · 1분마다 자동 갱신`
+    : m.key === 'post' ? `<i></i>애프터마켓 · 오늘 정규장 종가 기준`
+    : `<i></i>${m.label} · 직전 거래일 종가 기준${next}`;
+}
+
+let refreshing = false;
+async function refreshAll(silent = false) {
+  if (refreshing) return;
+  refreshing = true;
   const btn = document.getElementById('btnRefresh');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 분석 중';
+  if (!silent) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 분석 중'; }
   const syms = [...new Set(holdings.map(h => h.symbol))];
   let i = 0;
   const worker = async () => {
@@ -493,6 +546,7 @@ async function refreshAll() {
   lastRefresh = Date.now();
   document.getElementById('updated').textContent = `마지막 분석: ${new Date().toLocaleString('ko-KR')}`;
   btn.disabled = false; btn.textContent = '새로고침';
+  refreshing = false;
   render();
 }
 function reanalyze() {
@@ -500,7 +554,7 @@ function reanalyze() {
 }
 
 // ────────────────────────── 렌더링 ──────────────────────────
-function render() { renderTiles(); renderList(); renderDetail(); }
+function render() { renderMarket(); renderTiles(); renderList(); renderDetail(); }
 
 function renderTiles() {
   let value = 0, cost = 0, day = 0, watchBuy = 0; const cnt = { buy: 0, hold: 0, sell: 0 };
@@ -573,12 +627,12 @@ function renderDetail() {
   const h = holdings.find(x => x.symbol === selected);
   const a = h && analysis[h.symbol], d = h && data[h.symbol];
   if (!h || !a) { card.innerHTML = `<div class="empty">${h && errors[h.symbol] ? esc(errors[h.symbol]) : '종목을 선택하면 상세 분석이 표시됩니다.'}</div>`; return; }
-  const pos = (a.score + 100) / 2;
+  const pos = (a.score + 100) / 2, live = marketState().key === 'open';
   const reasons = [...a.reasons].sort((x, y) => Math.abs(y.pts) - Math.abs(x.pts)).map(r =>
     `<li><span class="pts num ${r.pts > 0 ? 'pos' : r.pts < 0 ? 'neg' : 'zero'}">${r.pts > 0 ? '+' : ''}${r.pts}</span><span>${esc(r.text)}</span></li>`).join('');
   card.innerHTML = `<div class="detail">
     <div class="detail-top">
-      <div><div class="t">${esc(h.symbol)}${h.watch ? '<span class="tag">관심 종목</span>' : ''}</div><div class="n">${esc(d.name)} · ${a.date.toLocaleDateString('ko-KR')} 종가 기준</div></div>
+      <div><div class="t">${esc(h.symbol)}${h.watch ? '<span class="tag">관심 종목</span>' : ''}</div><div class="n">${esc(d.name)} · ${live && d.priceTime ? `${d.priceTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 실시간 가격 기준` : `${a.date.toLocaleDateString('ko-KR')} 종가 기준`}</div></div>
       <div><div class="price-big num">${usd(a.price)}</div><div class="num ${cls(a.chg)}" style="text-align:right">${signed(a.chg)} (${pct(a.chgPct)})</div></div>
     </div>
     <div class="verdict ${a.key}">
@@ -589,6 +643,7 @@ function renderDetail() {
         <div class="meter-labels"><span>매도 −100</span><span>보유</span><span>매수 +100</span></div>
       </div>
     </div>
+    ${live ? '<div class="live-note">장중 잠정 신호입니다. 오늘 봉이 아직 확정되지 않아 장 마감까지 신호가 바뀔 수 있습니다.</div>' : ''}
     <div class="section-title">판단 근거</div>
     <ul class="reasons">${reasons}</ul>
     ${h.watch ? `<div class="section-title">진입 참고 가격</div>
@@ -794,8 +849,10 @@ document.getElementById('fileImport').addEventListener('change', async (e) => {
 document.getElementById('btnRefresh').onclick = refreshAll;
 let resizeT; window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(renderDetail, 150); });
 // 탭을 켜둔 채 다음 날이 되거나 30분 이상 지나면 자동으로 다시 분석
-document.addEventListener('visibilitychange', () => { if (!document.hidden && holdings.length && Date.now() - lastRefresh > 30 * 60 * 1000) refreshAll(); });
-setInterval(() => { if (!document.hidden && holdings.length && Date.now() - lastRefresh > 30 * 60 * 1000) refreshAll(); }, 60 * 1000);
+// 장중에는 1분, 그 외에는 30분마다 조용히 다시 분석 (탭이 보일 때만)
+const autoRefresh = () => { if (!document.hidden && holdings.length && Date.now() - lastRefresh > refreshEvery()) refreshAll(true); };
+document.addEventListener('visibilitychange', autoRefresh);
+setInterval(autoRefresh, 15 * 1000);
 render();
 if (holdings.length) refreshAll();
 </script>
