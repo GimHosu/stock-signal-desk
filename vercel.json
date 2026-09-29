@@ -1,0 +1,8 @@
+{
+  "crons": [
+    { "path": "/api/alert", "schedule": "0 22 * * 1-5" }
+  ],
+  "functions": {
+    "api/alert.js": { "maxDuration": 60 }
+  }
+}
