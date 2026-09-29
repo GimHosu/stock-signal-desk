@@ -186,6 +186,36 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
 .mkt.pre i, .mkt.post i { background: var(--warn); }
 @keyframes pulse { 50% { opacity: .3; } }
 .live-note { font-size: 12px; color: var(--text-2); margin: -6px 0 4px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: -6px 0 16px; }
+.tabs button { border: 0; background: none; padding: 9px 14px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button:hover { color: var(--text); }
+.tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+
+.filters { padding: 12px 16px; border-bottom: 1px solid var(--border); display: grid; gap: 10px; }
+.filter-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.filter-row select, .filter-row input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-size: 13px; }
+.filter-row input { flex: 1; min-width: 140px; }
+.dist { display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; }
+.scan-progress { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text-2); }
+.scan-progress .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.scan-progress .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.scan-progress .bar i.indet { width: 35%; animation: slide 1.2s ease-in-out infinite; }
+@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+[hidden] { display: none !important; }
+table.disc { width: 100%; border-collapse: collapse; }
+table.disc th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+table.disc td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+table.disc .r { text-align: right; }
+table.disc tbody tr.main { cursor: pointer; }
+table.disc tbody tr.main:hover { background: var(--surface-2); }
+table.disc tr.more td { background: var(--surface-2); padding: 10px 16px; }
+table.disc .why { font-size: 12px; color: var(--text-2); max-width: 340px; }
+table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.delta { display: block; font-size: 11px; }
+.new { display: inline-block; font-size: 10px; font-weight: 700; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 4px; margin-left: 4px; vertical-align: 2px; }
+.sec { font-size: 11px; color: var(--muted); }
+@media (max-width: 760px) { table.disc .hide-md { display: none; } }
+
 .stack { display: grid; gap: 16px; min-width: 0; }
 .count { color: var(--muted); font-size: 12px; }
 .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; border-radius: 9px; background: var(--surface-2); }
@@ -203,7 +233,11 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
 }
 @media (max-width: 560px) {
   .metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
-  table.holdings .hide-sm, table.holdings .sym-name { display: none; }
+  table.holdings .hide-sm, table.holdings .sym-name, table.disc .hide-sm { display: none; }
+  table.disc td, table.disc th { padding-left: 6px; padding-right: 6px; }
+  table.disc .sym-name { max-width: 84px; }
+  table.disc .btn.ghost { padding: 4px 2px; }
+  table.disc td:last-child .count { font-size: 11px; }
   table.holdings td, table.holdings th { padding-left: 6px; padding-right: 6px; }
   table.holdings td:first-child, table.holdings th:first-child { padding-left: 12px; }
   table.holdings .btn.ghost { padding: 4px 4px; }
@@ -227,6 +261,12 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
     </div>
   </header>
 
+  <nav class="tabs" id="tabs">
+    <button type="button" data-view="mine" class="on">내 종목</button>
+    <button type="button" data-view="discover">종목 발굴</button>
+  </nav>
+
+  <div id="viewMine">
   <section class="tiles" id="tiles"></section>
 
   <section class="layout">
@@ -241,6 +281,37 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
       </div>
     </div>
     <div class="card" id="detailCard"><div class="empty">종목을 선택하면 상세 분석이 표시됩니다.</div></div>
+  </section>
+  </div>
+
+  <section id="viewDiscover" hidden>
+    <div class="card">
+      <div class="panel-head">
+        <div><h2>종목 발굴 · S&amp;P 500</h2><div class="count" id="scanMeta">스캔 결과를 불러오는 중…</div></div>
+        <button class="btn" id="btnScan">지금 스캔</button>
+      </div>
+      <div class="scan-progress" id="scanProgress" hidden><div class="bar"><i id="scanBar"></i></div><span id="scanText"></span></div>
+      <div class="filters">
+        <div class="dist" id="dist"></div>
+        <div class="filter-row">
+          <select id="fMin" aria-label="최소 점수">
+            <option value="40">+40 이상 (강력 매수)</option>
+            <option value="30">+30 이상</option>
+            <option value="15">+15 이상 (매수 이상)</option>
+            <option value="-100">전체</option>
+          </select>
+          <select id="fSector" aria-label="섹터"><option value="">전체 섹터</option></select>
+          <select id="fSort" aria-label="정렬">
+            <option value="score">점수 높은 순</option>
+            <option value="delta">점수 상승폭 순</option>
+            <option value="drop">당일 하락 큰 순</option>
+            <option value="rsi">RSI 낮은 순</option>
+          </select>
+          <input id="fQ" type="search" placeholder="티커·회사 검색" autocomplete="off">
+        </div>
+      </div>
+      <div id="discoverList"></div>
+    </div>
   </section>
 
   <p class="disclaimer">
@@ -319,6 +390,8 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
 </dialog>
 
 <script src="/lib/signal.js"></script>
+<script src="/lib/universe.js"></script>
+<script src="/lib/scan.js"></script>
 <script>
 // ────────────────────────── 저장소 ──────────────────────────
 const store = {
@@ -791,6 +864,142 @@ document.getElementById('fileImport').addEventListener('change', async (e) => {
   e.target.value = '';
 });
 
+// ────────────────────────── 종목 발굴 ──────────────────────────
+// 서버 모드: 매일 자동 스캔 결과(/api/scan)를 보여 주고 '지금 스캔'은 서버에서 실행.
+// 로컬 모드: 이 브라우저에서 직접 스캔하고 결과를 브라우저에 저장.
+const SECTOR_KO = {
+  'Information Technology': 'IT', 'Health Care': '헬스케어', 'Financials': '금융', 'Consumer Discretionary': '경기소비재',
+  'Consumer Staples': '필수소비재', 'Industrials': '산업재', 'Energy': '에너지', 'Utilities': '유틸리티',
+  'Materials': '소재', 'Real Estate': '부동산', 'Communication Services': '커뮤니케이션',
+};
+const secKo = (s) => SECTOR_KO[s] || s || '';
+const LABELS = ['강력 매수', '매수', '보유', '매도', '강력 매도'];
+const labelKey = (l) => l.includes('매수') ? 'buy' : l.includes('매도') ? 'sell' : 'hold';
+let scanData = null, scanLoaded = false, scanning = false;
+const expanded = new Set();
+const disc = Object.assign({ min: '40', sector: '', sort: 'score', q: '' }, store.get('ssd.discFilter', {}));
+
+async function loadScan() {
+  if (cloud.mode === 'cloud') {
+    try { const { status, j } = await cloud.req('GET', '/api/scan'); if (status === 200 && j.results) scanData = j; } catch {}
+  } else {
+    scanData = store.get('ssd.scan', null);
+  }
+  scanLoaded = true;
+  renderDiscover();
+}
+
+async function scanNow() {
+  if (scanning) return;
+  scanning = true; renderDiscover();
+  const prog = document.getElementById('scanProgress'), bar = document.getElementById('scanBar'), txt = document.getElementById('scanText');
+  prog.hidden = false;
+  try {
+    if (cloud.mode === 'cloud') {
+      bar.className = 'indet';
+      txt.textContent = '서버에서 503개 종목을 스캔하는 중… (약 20~40초)';
+      const { status, j } = await cloud.req('POST', '/api/scan');
+      if (status !== 200) throw new Error(j.error || `오류 ${status}`);
+      scanData = j;
+    } else {
+      scanData = await Scan.runScan({
+        fetchSeries, concurrency: 6, previous: scanData,
+        onProgress: (d, t) => { bar.style.width = `${d / t * 100}%`; txt.textContent = `이 브라우저에서 스캔하는 중… ${d} / ${t}`; },
+      });
+      store.set('ssd.scan', scanData);
+    }
+  } catch (e) { alert(`스캔 실패: ${e.message}`); }
+  scanning = false; prog.hidden = true; bar.className = ''; bar.style.width = '0';
+  renderDiscover();
+}
+
+function renderDiscover() {
+  const meta = document.getElementById('scanMeta'), list = document.getElementById('discoverList'), btn = document.getElementById('btnScan');
+  btn.disabled = scanning;
+  btn.innerHTML = scanning ? '<span class="spinner"></span> 스캔 중' : '지금 스캔';
+  const selS = document.getElementById('fSector');
+  if (selS.options.length === 1) Object.entries(SECTOR_KO).forEach(([en, ko]) => selS.add(new Option(ko, en)));
+  document.getElementById('fMin').value = disc.min; selS.value = disc.sector;
+  document.getElementById('fSort').value = disc.sort; document.getElementById('fQ').value = disc.q;
+
+  if (!scanLoaded) { list.innerHTML = '<div class="empty"><span class="spinner"></span> 불러오는 중</div>'; return; }
+  if (!scanData || !scanData.results) {
+    meta.textContent = cloud.mode === 'cloud' ? '평일 오전 7시쯤 자동으로 스캔합니다.' : '이 브라우저에서 직접 스캔합니다 (1~3분 소요).';
+    document.getElementById('dist').innerHTML = '';
+    list.innerHTML = '<div class="empty"><b>아직 스캔 결과가 없습니다.</b><br><b>지금 스캔</b>을 누르면 S&amp;P 500 전 종목의 신호를 계산합니다.</div>';
+    return;
+  }
+
+  const s = scanData;
+  meta.textContent = `${s.day} ${s.live ? '장중 잠정' : '종가'} 기준 · ${new Date(s.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 스캔 · ${s.results.length}종목${s.errors.length ? ` (조회 실패 ${s.errors.length})` : ''}`;
+  const cnt = {}; s.results.forEach(r => { cnt[r.label] = (cnt[r.label] || 0) + 1; });
+  document.getElementById('dist').innerHTML = LABELS.map(l => `<span class="badge ${labelKey(l)}">${icon(labelKey(l))} ${l} ${cnt[l] || 0}</span>`).join('');
+
+  const q = disc.q.trim().toUpperCase();
+  const delta = (r) => r.prev == null ? null : r.score - r.prev;
+  const sorters = {
+    score: (a, b) => b.score - a.score,
+    delta: (a, b) => (delta(b) ?? -999) - (delta(a) ?? -999),
+    drop: (a, b) => a.chgPct - b.chgPct,
+    rsi: (a, b) => (a.rsi ?? 999) - (b.rsi ?? 999),
+  };
+  const rows = s.results
+    .filter(r => r.score >= +disc.min && (!disc.sector || r.sec === disc.sector) && (!q || r.s.includes(q) || r.n.toUpperCase().includes(q)))
+    .sort((a, b) => sorters[disc.sort](a, b) || b.score - a.score);
+  if (!rows.length) { list.innerHTML = '<div class="empty">조건에 맞는 종목이 없습니다. 최소 점수를 낮춰 보세요.</div>'; return; }
+
+  const owned = new Map(holdings.map(h => [h.symbol, h]));
+  const sign = (v) => (v > 0 ? '+' : '') + v;
+  list.innerHTML = `<div style="overflow-x:auto"><table class="disc">
+    <thead><tr><th>종목</th><th class="r">점수</th><th>신호</th><th class="r">종가</th><th class="r hide-sm">RSI</th><th class="hide-md">주요 근거</th><th></th></tr></thead>
+    <tbody>${rows.map(r => {
+      const d = delta(r), h = owned.get(r.s);
+      const isNew = r.prev != null && r.prev < 40 && r.score >= 40;
+      const action = h ? `<span class="count">${h.watch ? '관심 중' : '보유 중'}</span>` : `<button class="btn ghost" data-watch="${esc(r.s)}">+ 관심</button>`;
+      return `<tr class="main" data-sym="${esc(r.s)}">
+        <td><div class="sym">${esc(r.s)}${isNew ? '<span class="new">신규</span>' : ''}</div><div class="sym-name">${esc(r.n)}</div><div class="sec">${secKo(r.sec)}</div></td>
+        <td class="r num"><b>${sign(r.score)}</b>${d ? `<span class="delta ${cls(d)}">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</span>` : ''}</td>
+        <td><span class="badge ${r.key}">${icon(r.key)} ${r.label}</span></td>
+        <td class="r num">${usd(r.price)}<div class="${cls(r.chgPct)}" style="font-size:12px">${pct(r.chgPct)}</div></td>
+        <td class="r num hide-sm">${r.rsi ?? '–'}</td>
+        <td class="hide-md why">${r.reasons.slice(0, 2).map(([p, t]) => `<div>${sign(p)} ${esc(t)}</div>`).join('')}</td>
+        <td class="r">${action}</td></tr>` + (expanded.has(r.s) ? `<tr class="more"><td colspan="7"><ul class="reasons">${r.reasons.map(([p, t]) =>
+          `<li><span class="pts num ${p > 0 ? 'pos' : 'neg'}">${sign(p)}</span><span>${esc(t)}</span></li>`).join('')}</ul></td></tr>` : '');
+    }).join('')}</tbody></table></div>`;
+}
+
+async function addWatch(sym) {
+  if (holdings.some(h => h.symbol === sym)) return;
+  holdings.push({ symbol: sym, watch: true, shares: 0, avgCost: 0 });
+  saveHoldings(); renderDiscover(); render();
+  try { data[sym] = await fetchSeries(sym); delete errors[sym]; } catch (e) { errors[sym] = e.message; }
+  reanalyze(); recordHistory(); render();
+}
+
+document.getElementById('btnScan').onclick = scanNow;
+document.getElementById('discoverList').addEventListener('click', (e) => {
+  const w = e.target.closest('[data-watch]');
+  if (w) return addWatch(w.dataset.watch);
+  const tr = e.target.closest('tr.main');
+  if (!tr) return;
+  expanded.has(tr.dataset.sym) ? expanded.delete(tr.dataset.sym) : expanded.add(tr.dataset.sym);
+  renderDiscover();
+});
+for (const [id, key, ev] of [['fMin', 'min', 'change'], ['fSector', 'sector', 'change'], ['fSort', 'sort', 'change'], ['fQ', 'q', 'input']]) {
+  document.getElementById(id).addEventListener(ev, (e) => { disc[key] = e.target.value; store.set('ssd.discFilter', disc); renderDiscover(); });
+}
+
+let view = store.get('ssd.view', 'mine');
+function setView(v) {
+  view = v; store.set('ssd.view', v);
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  document.getElementById('viewMine').hidden = v !== 'mine';
+  document.getElementById('viewDiscover').hidden = v !== 'discover';
+  if (v === 'discover') { if (!scanLoaded) loadScan(); else renderDiscover(); }
+  else renderDetail(); // 숨겨져 있던 동안 폭이 0이었던 차트를 다시 그림
+}
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => setView(b.dataset.view));
+
 // ────────────────────────── 시작 ──────────────────────────
 document.getElementById('btnRefresh').onclick = refreshAll;
 let resizeT; window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(renderDetail, 150); });
@@ -813,6 +1022,7 @@ setInterval(autoRefresh, 15 * 1000);
   if (cloud.mode === 'locked') await askPassword();
   if (!holdings.some(h => h.symbol === selected)) selected = holdings[0]?.symbol || null;
   render();
+  setView(view);
   if (holdings.length) refreshAll();
 })();
 </script>

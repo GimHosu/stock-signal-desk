@@ -1,8 +1,10 @@
 {
   "crons": [
-    { "path": "/api/alert", "schedule": "0 22 * * 1-5" }
+    { "path": "/api/alert", "schedule": "0 22 * * 1-5" },
+    { "path": "/api/scan", "schedule": "15 22 * * 1-5" }
   ],
   "functions": {
-    "api/alert.js": { "maxDuration": 60 }
+    "api/alert.js": { "maxDuration": 60 },
+    "api/scan.js": { "maxDuration": 60 }
   }
 }
