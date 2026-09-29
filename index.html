@@ -179,6 +179,13 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .err { color: var(--bad); font-size: 12px; min-height: 1em; }
 
+.stack { display: grid; gap: 16px; min-width: 0; }
+.count { color: var(--muted); font-size: 12px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; border-radius: 9px; background: var(--surface-2); }
+.seg button { border: 0; background: transparent; padding: 7px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-2); }
+.seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border); }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; margin-left: 6px; vertical-align: 3px; }
+
 .disclaimer { margin-top: 24px; font-size: 12px; color: var(--muted); line-height: 1.6; }
 .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -203,7 +210,7 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
   <header class="top">
     <div>
       <h1>Stock Signal Desk</h1>
-      <div class="sub" id="updated">보유 미국 주식 일일 기술적 분석</div>
+      <div class="sub" id="updated">보유·관심 미국 주식 일일 기술적 분석</div>
     </div>
     <div class="actions">
       <button class="btn" id="btnRefresh">새로고침</button>
@@ -215,9 +222,15 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
   <section class="tiles" id="tiles"></section>
 
   <section class="layout">
-    <div class="card">
-      <div class="panel-head"><h2>보유 종목</h2><span class="sub" id="countLabel" style="color:var(--muted);font-size:12px"></span></div>
-      <div id="listArea"></div>
+    <div class="stack">
+      <div class="card">
+        <div class="panel-head"><h2>보유 종목</h2><span class="count" id="countLabel"></span></div>
+        <div id="listArea"></div>
+      </div>
+      <div class="card">
+        <div class="panel-head"><h2>관심 종목</h2><span class="count" id="watchCount"></span></div>
+        <div id="watchArea"></div>
+      </div>
     </div>
     <div class="card" id="detailCard"><div class="empty">종목을 선택하면 상세 분석이 표시됩니다.</div></div>
   </section>
@@ -235,7 +248,11 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
       <label for="fSymbol">티커</label>
       <input id="fSymbol" required placeholder="예: AAPL, MSFT, NVDA" autocomplete="off" style="text-transform:uppercase">
     </div>
-    <div class="row2">
+    <div class="seg" id="fMode">
+      <button type="button" data-mode="own">보유 중</button>
+      <button type="button" data-mode="watch">관심 종목</button>
+    </div>
+    <div class="row2" id="posFields">
       <div class="field"><label for="fShares">보유 수량</label><input id="fShares" type="number" step="any" min="0" required placeholder="10"></div>
       <div class="field"><label for="fCost">평균 단가 (USD)</label><input id="fCost" type="number" step="any" min="0" required placeholder="185.50"></div>
     </div>
@@ -415,7 +432,7 @@ function analyze(d, h) {
     else add(-5, `평균 대비 ${(d.volume[L] / v20[L - 1]).toFixed(1)}배 거래량 동반 하락`);
   }
   // 7) 내 포지션 기준 (손절 / 익절)
-  const plPct = h && h.avgCost > 0 ? (px / h.avgCost - 1) * 100 : null;
+  const plPct = h && !h.watch && h.avgCost > 0 ? (px / h.avgCost - 1) * 100 : null;
   if (plPct != null) {
     if (plPct <= settings.stopPct) add(-30, `수익률 ${pct(plPct, 1)} — 손절 기준(${settings.stopPct}%) 도달`);
     else if (plPct >= settings.takePct) add(-15, `수익률 ${pct(plPct, 1)} — 익절 기준(+${settings.takePct}%) 도달, 분할 익절 고려`);
@@ -435,8 +452,8 @@ function analyze(d, h) {
     price: px, prev: c[L - 1], chg: px - c[L - 1], chgPct: (px / c[L - 1] - 1) * 100, date: d.date[L],
     rsi: rv, s20: s20[L], s50: s50[L], s200: s200[L], hist: m.hist[L],
     high52: Math.max(...yr), low52: Math.min(...yr),
-    stopPrice: h ? h.avgCost * (1 + settings.stopPct / 100) : null,
-    takePrice: h ? h.avgCost * (1 + settings.takePct / 100) : null,
+    stopPrice: plPct != null ? h.avgCost * (1 + settings.stopPct / 100) : null,
+    takePrice: plPct != null ? h.avgCost * (1 + settings.takePct / 100) : null,
     plPct, series: { s20, s50, rsi: r },
   };
 }
@@ -486,9 +503,10 @@ function reanalyze() {
 function render() { renderTiles(); renderList(); renderDetail(); }
 
 function renderTiles() {
-  let value = 0, cost = 0, day = 0; const cnt = { buy: 0, hold: 0, sell: 0 };
+  let value = 0, cost = 0, day = 0, watchBuy = 0; const cnt = { buy: 0, hold: 0, sell: 0 };
   for (const h of holdings) {
     const a = analysis[h.symbol]; if (!a) continue;
+    if (h.watch) { if (a.key === 'buy') watchBuy++; continue; }
     value += a.price * h.shares; cost += h.avgCost * h.shares; day += a.chg * h.shares; cnt[a.key]++;
   }
   const pl = value - cost, plPct = cost ? pl / cost * 100 : 0, dayPct = value - day ? day / (value - day) * 100 : 0;
@@ -499,35 +517,49 @@ function renderTiles() {
     <div class="card tile"><div class="label">오늘의 신호</div>
       <div class="value" style="display:flex;gap:10px;font-size:15px;margin-top:8px;flex-wrap:wrap">
         <span class="badge buy">▲ 매수 ${cnt.buy}</span><span class="badge hold">● 보유 ${cnt.hold}</span><span class="badge sell">▼ 매도 ${cnt.sell}</span>
-      </div></div>`;
+      </div><div class="foot">보유 종목 기준 · 관심 종목 매수 신호 ${watchBuy}개</div></div>`;
 }
 
 function renderList() {
-  const area = document.getElementById('listArea');
-  document.getElementById('countLabel').textContent = holdings.length ? `${holdings.length}종목` : '';
-  if (!holdings.length) {
-    area.innerHTML = `<div class="empty"><b>보유 종목이 없습니다.</b><br>오른쪽 위 <b>+ 종목 추가</b>로 티커, 수량, 평균단가를 입력하세요.</div>`;
+  const owned = holdings.filter(h => !h.watch), watched = holdings.filter(h => h.watch);
+  document.getElementById('countLabel').textContent = owned.length ? `${owned.length}종목` : '';
+  document.getElementById('watchCount').textContent = watched.length ? `${watched.length}종목` : '';
+  renderTable(document.getElementById('listArea'), owned, false);
+  renderTable(document.getElementById('watchArea'), watched, true);
+}
+
+function renderTable(area, list, watch) {
+  if (!list.length) {
+    area.innerHTML = watch
+      ? `<div class="empty"><b>관심 종목이 없습니다.</b><br><b>+ 종목 추가</b>에서 <b>관심 종목</b>을 선택하면 보유하지 않은 종목도 모니터링할 수 있습니다.</div>`
+      : `<div class="empty"><b>보유 종목이 없습니다.</b><br>오른쪽 위 <b>+ 종목 추가</b>로 티커, 수량, 평균단가를 입력하세요.</div>`;
     return;
   }
-  const rows = holdings.map(h => {
+  const editBtn = (h) => `<td class="r"><button class="btn ghost" data-edit="${esc(h.symbol)}">편집</button></td>`;
+  const rows = list.map(h => {
     const a = analysis[h.symbol], err = errors[h.symbol], d = data[h.symbol];
-    if (!a) return `<tr data-sym="${esc(h.symbol)}" class="${h.symbol === selected ? 'sel' : ''}">
+    const sel = h.symbol === selected ? 'sel' : '';
+    if (!a) return `<tr data-sym="${esc(h.symbol)}" class="${sel}">
       <td><div class="sym">${esc(h.symbol)}</div></td>
-      <td colspan="4" style="color:${err ? 'var(--bad)' : 'var(--muted)'}">${err ? esc(err) : '<span class="spinner"></span> 불러오는 중'}</td>
-      <td class="r"><button class="btn ghost" data-edit="${esc(h.symbol)}">편집</button></td></tr>`;
+      <td colspan="${watch ? 3 : 4}" style="color:${err ? 'var(--bad)' : 'var(--muted)'}">${err ? esc(err) : '<span class="spinner"></span> 불러오는 중'}</td>
+      ${editBtn(h)}</tr>`;
     const prev = previousSignal(h.symbol);
     const changed = prev && prev.label !== a.label ? `<span class="changed">어제 ${esc(prev.label)} → 변경</span>` : '';
-    return `<tr data-sym="${esc(h.symbol)}" class="${h.symbol === selected ? 'sel' : ''}">
+    const middle = watch
+      ? `<td class="r num"><span class="${cls(a.price / a.high52 - 1)}">${pct((a.price / a.high52 - 1) * 100, 1)}</span></td>`
+      : `<td class="r num hide-sm">${h.shares.toLocaleString('en-US')}</td>
+         <td class="r num"><span class="${cls(a.plPct)}">${pct(a.plPct, 1)}</span><div class="hide-sm" style="font-size:12px;color:var(--muted)">${signed((a.price - h.avgCost) * h.shares)}</div></td>`;
+    return `<tr data-sym="${esc(h.symbol)}" class="${sel}">
       <td><div class="sym">${esc(h.symbol)}</div><div class="sym-name">${esc(d.name)}</div></td>
       <td class="r num">${usd(a.price)}<div class="num ${cls(a.chg)}" style="font-size:12px">${pct(a.chgPct)}</div></td>
-      <td class="r num hide-sm">${h.shares.toLocaleString('en-US')}</td>
-      <td class="r num"><span class="${cls(a.plPct)}">${pct(a.plPct, 1)}</span><div class="hide-sm" style="font-size:12px;color:var(--muted)">${signed((a.price - h.avgCost) * h.shares)}</div></td>
+      ${middle}
       <td><span class="badge ${a.key}">${icon(a.key)} ${a.label}</span>${changed}</td>
-      <td class="r"><button class="btn ghost" data-edit="${esc(h.symbol)}">편집</button></td></tr>`;
+      ${editBtn(h)}</tr>`;
   }).join('');
-  area.innerHTML = `<div style="overflow-x:auto"><table class="holdings">
-    <thead><tr><th>종목</th><th class="r">현재가</th><th class="r hide-sm">수량</th><th class="r">수익률</th><th>신호</th><th></th></tr></thead>
-    <tbody>${rows}</tbody></table></div>`;
+  const head = watch
+    ? `<th>종목</th><th class="r">현재가</th><th class="r">52주 고점 대비</th><th>신호</th><th></th>`
+    : `<th>종목</th><th class="r">현재가</th><th class="r hide-sm">수량</th><th class="r">수익률</th><th>신호</th><th></th>`;
+  area.innerHTML = `<div style="overflow-x:auto"><table class="holdings"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
   area.querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('click', (e) => {
     if (e.target.closest('[data-edit]')) return;
     selected = tr.dataset.sym; renderList(); renderDetail();
@@ -546,7 +578,7 @@ function renderDetail() {
     `<li><span class="pts num ${r.pts > 0 ? 'pos' : r.pts < 0 ? 'neg' : 'zero'}">${r.pts > 0 ? '+' : ''}${r.pts}</span><span>${esc(r.text)}</span></li>`).join('');
   card.innerHTML = `<div class="detail">
     <div class="detail-top">
-      <div><div class="t">${esc(h.symbol)}</div><div class="n">${esc(d.name)} · ${a.date.toLocaleDateString('ko-KR')} 종가 기준</div></div>
+      <div><div class="t">${esc(h.symbol)}${h.watch ? '<span class="tag">관심 종목</span>' : ''}</div><div class="n">${esc(d.name)} · ${a.date.toLocaleDateString('ko-KR')} 종가 기준</div></div>
       <div><div class="price-big num">${usd(a.price)}</div><div class="num ${cls(a.chg)}" style="text-align:right">${signed(a.chg)} (${pct(a.chgPct)})</div></div>
     </div>
     <div class="verdict ${a.key}">
@@ -559,13 +591,19 @@ function renderDetail() {
     </div>
     <div class="section-title">판단 근거</div>
     <ul class="reasons">${reasons}</ul>
-    <div class="section-title">내 포지션</div>
+    ${h.watch ? `<div class="section-title">진입 참고 가격</div>
+    <div class="metrics">
+      <div class="metric"><div class="k">52주 고점 대비</div><div class="v num ${cls(a.price / a.high52 - 1)}">${pct((a.price / a.high52 - 1) * 100, 1)}</div></div>
+      <div class="metric"><div class="k">52주 저점 대비</div><div class="v num ${cls(a.price / a.low52 - 1)}">${pct((a.price / a.low52 - 1) * 100, 1)}</div></div>
+      <div class="metric"><div class="k">20일선</div><div class="v num">${usd(a.s20)}</div></div>
+      <div class="metric"><div class="k">20일선 대비</div><div class="v num ${cls(a.price - a.s20)}">${pct((a.price / a.s20 - 1) * 100, 1)}</div></div>
+    </div>` : `<div class="section-title">내 포지션</div>
     <div class="metrics">
       <div class="metric"><div class="k">평균단가</div><div class="v num">${usd(h.avgCost)}</div></div>
       <div class="metric"><div class="k">평가손익</div><div class="v num ${cls(a.plPct)}">${signed((a.price - h.avgCost) * h.shares)}</div></div>
       <div class="metric"><div class="k">손절가 (${settings.stopPct}%)</div><div class="v num">${usd(a.stopPrice)}</div></div>
       <div class="metric"><div class="k">익절가 (+${settings.takePct}%)</div><div class="v num">${usd(a.takePrice)}</div></div>
-    </div>
+    </div>`}
     <div class="section-title">주요 지표</div>
     <div class="metrics">
       <div class="metric"><div class="k">RSI (14)</div><div class="v num">${a.rsi != null ? a.rsi.toFixed(1) : '–'}</div></div>
@@ -579,7 +617,7 @@ function renderDetail() {
         <span><i style="background:var(--series-1)"></i>종가</span>
         <span><i style="background:var(--series-2)"></i>20일선</span>
         <span><i style="background:var(--series-3)"></i>50일선</span>
-        <span id="costLegend"><i class="dash"></i>평균단가</span>
+        ${h.watch ? '' : '<span id="costLegend"><i class="dash"></i>평균단가</span>'}
       </div>
       <svg class="chart" id="priceSvg"></svg>
       <div class="section-title" style="margin-top:10px">RSI (14)</div>
@@ -607,9 +645,9 @@ function drawCharts(h, a, d) {
 
   const vals = idx.flatMap(i => [d.close[i], a.series.s20[i], a.series.s50[i]]).filter(v => v != null);
   let lo = Math.min(...vals), hi = Math.max(...vals);
-  const costInRange = h.avgCost >= lo * 0.85 && h.avgCost <= hi * 1.15;
+  const costInRange = !h.watch && h.avgCost >= lo * 0.85 && h.avgCost <= hi * 1.15;
   if (costInRange) { lo = Math.min(lo, h.avgCost); hi = Math.max(hi, h.avgCost); }
-  else document.getElementById('costLegend').innerHTML = `평균단가 ${usd(h.avgCost)} (차트 범위 밖)`;
+  else if (!h.watch) document.getElementById('costLegend').innerHTML = `평균단가 ${usd(h.avgCost)} (차트 범위 밖)`;
   const pad = (hi - lo) * 0.06; lo -= pad; hi += pad;
   const y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b);
   const path = (arr, yf) => { let p = '', pen = false; for (const i of idx) { if (arr[i] == null) { pen = false; continue; } p += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + yf(arr[i]).toFixed(1); pen = true; } return p; };
@@ -649,7 +687,7 @@ function drawCharts(h, a, d) {
     const row = (sw, k, v) => `<div class="row"><span>${sw ? `<i class="sw" style="background:${sw}"></i>` : ''}${k}</span><span class="num">${v}</span></div>`;
     tip.innerHTML = `<div class="d">${d.date[i].toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' })}</div>
       ${row('var(--series-1)', '종가', usd(d.close[i]))}${row('var(--series-2)', '20일선', usd(a.series.s20[i]))}${row('var(--series-3)', '50일선', usd(a.series.s50[i]))}
-      ${row('', 'RSI', a.series.rsi[i] != null ? a.series.rsi[i].toFixed(1) : '–')}${row('', '수익률', pct((d.close[i] / h.avgCost - 1) * 100, 1))}`;
+      ${row('', 'RSI', a.series.rsi[i] != null ? a.series.rsi[i].toFixed(1) : '–')}${h.watch ? '' : row('', '수익률', pct((d.close[i] / h.avgCost - 1) * 100, 1))}`;
     tip.style.display = 'block';
     const bx = box.getBoundingClientRect(), sx = X * (rect.width / W) + rect.left - bx.left;
     const tw = tip.offsetWidth;
@@ -667,15 +705,23 @@ function drawCharts(h, a, d) {
 
 // ────────────────────────── 종목 추가/편집 ──────────────────────────
 const dlg = document.getElementById('dlgHolding');
-let editing = null;
+let editing = null, mode = 'own';
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('#fMode button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  document.getElementById('posFields').style.display = m === 'watch' ? 'none' : '';
+  document.getElementById('fShares').required = document.getElementById('fCost').required = m === 'own';
+}
+document.querySelectorAll('#fMode button').forEach(b => b.onclick = () => setMode(b.dataset.mode));
 function openHolding(symbol) {
   editing = symbol || null;
   const h = holdings.find(x => x.symbol === symbol);
   document.getElementById('dlgTitle').textContent = h ? `${h.symbol} 편집` : '종목 추가';
   document.getElementById('fSymbol').value = h ? h.symbol : '';
   document.getElementById('fSymbol').disabled = !!h;
-  document.getElementById('fShares').value = h ? h.shares : '';
-  document.getElementById('fCost').value = h ? h.avgCost : '';
+  document.getElementById('fShares').value = h && !h.watch ? h.shares : '';
+  document.getElementById('fCost').value = h && !h.watch ? h.avgCost : '';
+  setMode(h && h.watch ? 'watch' : 'own');
   document.getElementById('fErr').textContent = '';
   document.getElementById('btnDelete').style.display = h ? '' : 'none';
   dlg.showModal();
@@ -694,16 +740,18 @@ document.getElementById('formHolding').addEventListener('submit', async (e) => {
   const sym = document.getElementById('fSymbol').value.trim().toUpperCase();
   const shares = parseFloat(document.getElementById('fShares').value), avgCost = parseFloat(document.getElementById('fCost').value);
   const err = document.getElementById('fErr');
-  if (!(shares > 0) || !(avgCost > 0)) { err.textContent = '수량과 평균단가는 0보다 커야 합니다.'; return; }
+  const watch = mode === 'watch';
+  if (!watch && (!(shares > 0) || !(avgCost > 0))) { err.textContent = '수량과 평균단가는 0보다 커야 합니다.'; return; }
+  const entry = watch ? { watch: true, shares: 0, avgCost: 0 } : { watch: false, shares, avgCost };
   if (editing) {
-    Object.assign(holdings.find(h => h.symbol === editing), { shares, avgCost });
+    Object.assign(holdings.find(h => h.symbol === editing), entry);
     saveHoldings(); dlg.close(); reanalyze(); render(); return;
   }
   if (holdings.some(h => h.symbol === sym)) { err.textContent = '이미 추가된 종목입니다. 목록에서 편집하세요.'; return; }
   const save = document.getElementById('btnSave'); save.disabled = true; save.innerHTML = '<span class="spinner"></span> 확인 중';
   try {
     data[sym] = await fetchSeries(sym);
-    holdings.push({ symbol: sym, shares, avgCost }); saveHoldings();
+    holdings.push({ symbol: sym, ...entry }); saveHoldings();
     selected = sym; dlg.close(); reanalyze(); recordHistory(); render();
   } catch (ex) { err.textContent = ex.message; }
   finally { save.disabled = false; save.textContent = '저장'; }
@@ -732,7 +780,9 @@ document.getElementById('fileImport').addEventListener('change', async (e) => {
   try {
     const j = JSON.parse(await f.text());
     if (!Array.isArray(j.holdings)) throw new Error();
-    holdings = j.holdings.filter(h => h && h.symbol && h.shares > 0 && h.avgCost > 0).map(h => ({ symbol: String(h.symbol).toUpperCase(), shares: +h.shares, avgCost: +h.avgCost }));
+    holdings = j.holdings.filter(h => h && h.symbol && (h.watch || (h.shares > 0 && h.avgCost > 0)))
+      .map(h => h.watch ? { symbol: String(h.symbol).toUpperCase(), watch: true, shares: 0, avgCost: 0 }
+                        : { symbol: String(h.symbol).toUpperCase(), watch: false, shares: +h.shares, avgCost: +h.avgCost });
     if (j.settings) settings = Object.assign(settings, j.settings);
     saveHoldings(); store.set('ssd.settings', settings);
     selected = holdings[0]?.symbol || null; dlgS.close(); render(); refreshAll();
