@@ -1,0 +1,10 @@
+.git
+.claude
+.vercel
+.env
+.env.*
+data
+scripts
+dev-server.ps1
+vercel.json
+*.md

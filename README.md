@@ -26,6 +26,9 @@ AI 없이 규칙 기반으로 계산하므로 API 키나 비용이 들지 않습
 | `lib/sectors.js` | 섹터 강도·RRG 순환매·위험 선호도 계산 |
 | `lib/calendar.js` | 증시 일정: 휴장·조기 폐장·옵션 만기·FOMC 계산, 경제지표 한국어 변환 |
 | `api/calendar.js` | 이번 주 경제지표(무료 피드) + 대형주 실적(Finnhub) |
+| `server/index.js` | NAS(Docker)용 Node 서버: 정적 파일·API 실행·스케줄러 |
+| `lib/toss.js` · `api/toss.js` | 토스증권 보유 종목 동기화 (조회 전용) |
+| `Dockerfile` · `docker-compose.yml` · `.env.example` | NAS 배포 구성 ([DEPLOY-NAS.md](DEPLOY-NAS.md)) |
 | `lib/glossary.js` | 용어 설명 내용 (9개 분류, 60여 개 용어) |
 | `api/universe.js` | 스캔 대상 목록 갱신 (위키백과 → 서버 저장, 편입·편출 비교) |
 | `vercel.json` | 매일 실행 일정: 알림 22:00 UTC, 스캔 22:15 UTC (한국 07:00, 07:15) |
@@ -169,6 +172,18 @@ Vercel 프로젝트 → **Settings → Environment Variables** 에 추가합니�
 - **목록 갱신** 버튼은 위키백과의 최신 S&P 500 구성 종목을 받아 저장하고, 편입·편출된 종목을 보여 줍니다.
   저장된 목록은 다음 스캔(자동·수동)부터 쓰입니다. 서버 저장소가 없으면 이 브라우저에 저장됩니다.
 - 앱에 내장된 기본 목록(`lib/universe.js`)은 `scripts/update-universe.ps1` 로 다시 만들 수 있습니다.
+
+## NAS(Docker) 실행
+
+Vercel 없이 시놀로지 NAS 등 Docker 에서 돌릴 수 있습니다. 자세한 절차는 **[DEPLOY-NAS.md](DEPLOY-NAS.md)**.
+
+- `server/index.js` — 외부 패키지 없는 Node 서버. `api/*.js` 를 그대로 실행하고, Vercel Cron 대신
+  평일 21:45 UTC 토스 동기화 → 22:00 알림 → 22:15 스캔을 실행합니다 (`TOSS_SYNC_UTC`·`ALERT_UTC`·`SCAN_UTC` 로 변경 가능).
+- 저장소는 Upstash 대신 `DATA_DIR`(/data 볼륨)의 JSON 파일을 씁니다.
+- `BASE_PATH=/finance` 로 하위 경로 서비스가 가능합니다 (화면은 상대 경로로 파일을 불러옵니다).
+- **토스증권 보유 종목 동기화** (`lib/toss.js`, `api/toss.js`): `TOSS_CLIENT_ID`/`TOSS_CLIENT_SECRET` 이 있으면 켜집니다.
+  토스는 허용 IP 에서만 응답하므로 IP 가 고정된 곳(집 NAS)에서만 동작합니다. 조회 API 만 쓰고 주문 API 는 부르지 않습니다.
+- 설정 예시: `.env.example`, 구성: `Dockerfile`, `docker-compose.yml`
 
 ## 로컬에서 실행
 

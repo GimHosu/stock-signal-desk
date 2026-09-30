@@ -1,0 +1,13 @@
+# 시놀로지 Container Manager > 프로젝트 > 생성 에서 이 폴더를 고르면 이 파일로 빌드·실행된다.
+services:
+  stock-signal-desk:
+    build: .
+    image: stock-signal-desk:latest
+    container_name: stock-signal-desk
+    restart: unless-stopped
+    ports:
+      - "18080:8080"          # NAS의 18080 포트 → 컨테이너 8080 (다른 서비스와 겹치면 앞 숫자만 바꾸세요)
+    env_file:
+      - .env                  # 비밀번호·텔레그램·토스 키 등 (.env.example 을 복사해 만드세요)
+    volumes:
+      - ./data:/data          # 종목 목록·신호 기록·스캔 결과 보관 (컨테이너를 지워도 유지)

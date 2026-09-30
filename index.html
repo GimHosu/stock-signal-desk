@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<script>if (!/\/$|\.html$/.test(location.pathname)) location.replace(location.pathname + '/' + location.search + location.hash);</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stock Signal Desk</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -567,6 +568,12 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
       </div>
       <div class="hint" id="alertResult" style="white-space:pre-line;font-size:12px;margin-top:6px"></div>
     </div>
+    <div class="field" id="tossField" hidden>
+      <label>토스증권 보유 종목 동기화</label>
+      <div class="run-log" id="tossLog"></div>
+      <div class="actions"><button type="button" class="btn" id="btnTossSync">지금 동기화</button></div>
+      <div class="hint">토스증권의 미국 주식 보유 종목(수량·평균단가)을 가져와 '보유 종목'을 맞춥니다. 토스에서 모두 판 종목은 목록에서 빠지고, 관심 종목은 그대로 둡니다. 조회만 하며 주문은 하지 않습니다.</div>
+    </div>
     <div class="field">
       <label>데이터 백업</label>
       <div class="actions">
@@ -583,14 +590,14 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
   </form>
 </dialog>
 
-<script src="/lib/signal.js"></script>
-<script src="/lib/universe.js"></script>
-<script src="/lib/scan.js"></script>
-<script src="/lib/fundamentals.js"></script>
-<script src="/lib/events.js"></script>
-<script src="/lib/glossary.js"></script>
-<script src="/lib/sectors.js"></script>
-<script src="/lib/calendar.js"></script>
+<script src="lib/signal.js"></script>
+<script src="lib/universe.js"></script>
+<script src="lib/scan.js"></script>
+<script src="lib/fundamentals.js"></script>
+<script src="lib/events.js"></script>
+<script src="lib/glossary.js"></script>
+<script src="lib/sectors.js"></script>
+<script src="lib/calendar.js"></script>
 <script>
 // ────────────────────────── 저장소 ──────────────────────────
 const store = {
@@ -621,7 +628,7 @@ const cloud = {
     return { status: res.status, j };
   },
   async pull() {
-    let r; try { r = await this.req('GET', '/api/portfolio'); } catch { return; }
+    let r; try { r = await this.req('GET', 'api/portfolio'); } catch { return; }
     if (r.status === 401) { this.mode = 'locked'; return; }
     if (r.status !== 200) { if (this.mode !== 'cloud') this.mode = 'local'; return; }
     const first = this.mode !== 'cloud';
@@ -634,7 +641,7 @@ const cloud = {
   },
   save() { if (this.mode !== 'cloud') return; clearTimeout(this.timer); this.timer = setTimeout(() => this.push(), 400); },
   async push() {
-    try { const r = await this.req('PUT', '/api/portfolio', { holdings, settings }); if (r.status !== 200) throw new Error(r.j.error || r.status); }
+    try { const r = await this.req('PUT', 'api/portfolio', { holdings, settings }); if (r.status !== 200) throw new Error(r.j.error || r.status); }
     catch (e) { alert(`서버 저장에 실패했습니다: ${e.message}`); }
   },
 };
@@ -667,7 +674,7 @@ const ymd = (d) => d.toISOString().slice(0, 10);
 
 // ────────────────────────── 데이터 ──────────────────────────
 async function fetchSeries(symbol) {
-  const res = await fetch(`/api/chart?symbol=${encodeURIComponent(symbol)}`);
+  const res = await fetch(`api/chart?symbol=${encodeURIComponent(symbol)}`);
   let j; try { j = await res.json(); } catch { throw new Error('응답을 해석하지 못했습니다.'); }
   if (!res.ok) throw new Error(j.error || `오류 ${res.status}`);
   return Signal.parseChart(j, symbol);
@@ -679,7 +686,7 @@ async function ensureFund(sym) {
   if (c && Date.now() - c.at < (c.data.failed ? 36e5 : 7 * 864e5)) return;
   let data;
   try {
-    const res = await fetch(`/api/fundamentals?symbol=${encodeURIComponent(sym)}`);
+    const res = await fetch(`api/fundamentals?symbol=${encodeURIComponent(sym)}`);
     const j = await res.json();
     if (!res.ok) throw new Error(j.error || `오류 ${res.status}`);
     // 로컬 개발 서버는 SEC 원본(raw)을 넘기므로 여기서 계산한다
@@ -728,7 +735,7 @@ async function ensureEvents(sym) {
   }
   let data;
   try {
-    const res = await fetch(`/api/events?symbol=${encodeURIComponent(sym)}`, { headers: { 'x-app-password': cloud.pw } });
+    const res = await fetch(`api/events?symbol=${encodeURIComponent(sym)}`, { headers: { 'x-app-password': cloud.pw } });
     if (res.status === 404) data = { unavailable: true, reason: '서버 배포 환경에서만 사용할 수 있습니다 (로컬 모드).' };
     else {
       const j = await res.json();
@@ -1236,7 +1243,40 @@ document.getElementById('btnSettings').onclick = () => {
   document.getElementById('sDaily').checked = !!settings.dailySummary;
   document.getElementById('alertResult').textContent = '';
   dlgS.showModal();
-  if (on) loadRunLog();
+  if (on) { loadRunLog(); loadTossStatus(); } else document.getElementById('tossField').hidden = true;
+};
+
+// 토스증권 동기화 (NAS 서버에 TOSS_CLIENT_ID/SECRET 이 있을 때만 표시)
+function describeToss(r) {
+  if (!r) return '아직 동기화한 적이 없습니다. 평일 아침 6시 45분쯤 자동으로 동기화합니다.';
+  const when = new Date(r.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  if (!r.ok) return `${when} · <span class="bad">⚠️ 실패: ${esc(r.error)}</span>`;
+  const parts = [`미국 주식 ${r.count}종목`];
+  if (r.added.length) parts.push(`추가 ${r.added.map(esc).join(', ')}`);
+  if (r.updated.length) parts.push(`변경 ${r.updated.map(esc).join(', ')}`);
+  if (r.removed.length) parts.push(`삭제 ${r.removed.map(esc).join(', ')}`);
+  if (!r.added.length && !r.updated.length && !r.removed.length) parts.push('변경 없음');
+  if (r.skippedKr) parts.push(`국내 주식 ${r.skippedKr}건 제외`);
+  return `${when} · ${parts.join(' · ')}`;
+}
+async function loadTossStatus() {
+  const field = document.getElementById('tossField'), el = document.getElementById('tossLog');
+  try {
+    const { status, j } = await cloud.req('GET', 'api/toss');
+    if (status !== 200 || !j.configured) { field.hidden = true; return; }
+    field.hidden = false;
+    el.innerHTML = `<b>마지막 동기화</b><br>${describeToss(j.last)}`;
+  } catch { field.hidden = true; }
+}
+document.getElementById('btnTossSync').onclick = async (e) => {
+  const btn = e.currentTarget, el = document.getElementById('tossLog');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 동기화 중';
+  try {
+    const { j } = await cloud.req('POST', 'api/toss', { action: 'sync' });
+    el.innerHTML = `<b>방금 동기화</b><br>${describeToss(j.ok ? j : { at: new Date().toISOString(), ok: false, error: j.error || '알 수 없는 오류' })}`;
+    if (j.ok) { await cloud.pull(); if (!holdings.some(h => h.symbol === selected)) selected = holdings[0]?.symbol || null; render(); refreshAll(true); }
+  } catch (err) { el.innerHTML = `<span class="bad">⚠️ ${esc(err.message)}</span>`; }
+  btn.disabled = false; btn.textContent = '지금 동기화';
 };
 
 // 마지막 자동/수동 점검 기록 — "알림이 안 온 게 변경이 없어서인지, 실행이 안 돼서인지" 구분용
@@ -1254,10 +1294,10 @@ async function loadRunLog() {
   const el = document.getElementById('runLog');
   el.innerHTML = '<span class="spinner"></span> 점검 기록 확인 중';
   try {
-    const { status, j } = await cloud.req('GET', '/api/alert');
+    const { status, j } = await cloud.req('GET', 'api/alert');
     if (status !== 200) throw new Error(j.error || `오류 ${status}`);
     const cron = describeRun(j.cron), manual = describeRun(j.manual);
-    el.innerHTML = `<b>마지막 자동 점검</b><br>${cron || '아직 기록이 없습니다. 평일 오전 7~8시에 자동으로 실행됩니다. 하루가 지나도 기록이 없다면 Vercel의 Cron Jobs 로그를 확인해 주세요.'}`
+    el.innerHTML = `<b>마지막 자동 점검</b><br>${cron || '아직 기록이 없습니다. 평일 오전 7~8시에 자동으로 실행됩니다. 하루가 지나도 기록이 없다면 서버 로그(NAS: Container Manager → 컨테이너 → 로그)를 확인해 주세요.'}`
       + (manual ? `<br><b>마지막 수동 점검</b><br>${manual}` : '');
   } catch (e) { el.innerHTML = `<span class="bad">점검 기록을 불러오지 못했습니다: ${esc(e.message)}</span>`; }
 }
@@ -1265,7 +1305,7 @@ async function alertAction(action, btn) {
   const out = document.getElementById('alertResult');
   btn.disabled = true; out.textContent = '처리 중…';
   try {
-    const { status, j } = await cloud.req('POST', '/api/alert', { action });
+    const { status, j } = await cloud.req('POST', 'api/alert', { action });
     if (j.needChatId) {
       out.textContent = j.chats.length
         ? `봇과 대화한 채팅을 찾았습니다:\n${j.chats.map(c => `${c.id}  (${c.name})`).join('\n')}\n이 숫자를 Vercel 환경변수 TELEGRAM_CHAT_ID 에 넣고 Redeploy 한 뒤 다시 눌러 주세요.`
@@ -1330,7 +1370,7 @@ let uniInfo = null;                                   // { source: 'saved' | 'bu
 let localUniverse = store.get('ssd.universe', null);  // 로컬 모드에서 갱신한 목록 { at, list }
 async function loadUniverseInfo() {
   if (cloud.mode === 'cloud') {
-    try { const { status, j } = await cloud.req('GET', '/api/universe'); if (status === 200) uniInfo = j; } catch {}
+    try { const { status, j } = await cloud.req('GET', 'api/universe'); if (status === 200) uniInfo = j; } catch {}
   } else {
     uniInfo = localUniverse
       ? { source: 'saved', at: localUniverse.at, count: localUniverse.list.length }
@@ -1350,7 +1390,7 @@ async function updateUniverse() {
   try {
     let r;
     if (cloud.mode === 'cloud') {
-      const { status, j } = await cloud.req('POST', '/api/universe');
+      const { status, j } = await cloud.req('POST', 'api/universe');
       if (status !== 200) throw new Error(j.error || `오류 ${status}`);
       r = j;
     } else {
@@ -1381,7 +1421,7 @@ document.getElementById('btnUniverse').onclick = updateUniverse;
 async function loadScan() {
   loadUniverseInfo();
   if (cloud.mode === 'cloud') {
-    try { const { status, j } = await cloud.req('GET', '/api/scan'); if (status === 200 && j.results) scanData = j; } catch {}
+    try { const { status, j } = await cloud.req('GET', 'api/scan'); if (status === 200 && j.results) scanData = j; } catch {}
   } else {
     scanData = store.get('ssd.scan', null);
   }
@@ -1400,7 +1440,7 @@ async function scanNow() {
     if (cloud.mode === 'cloud') {
       bar.className = 'indet';
       txt.textContent = `서버에서 ${uniInfo ? uniInfo.count : 503}개 종목을 스캔하는 중… (약 20~40초)`;
-      const { status, j } = await cloud.req('POST', '/api/scan');
+      const { status, j } = await cloud.req('POST', 'api/scan');
       if (status !== 200) throw new Error(j.error || `오류 ${status}`);
       scanData = j;
     } else {
@@ -1643,7 +1683,7 @@ async function loadCalendar(force = false) {
   if (!force && calData && Date.now() - calData.fetchedAt < 36e5) { renderCalendar(); renderWeek(); return; }
   calLoading = true;
   try {
-    const res = await fetch('/api/calendar', { headers: { 'x-app-password': cloud.pw } });
+    const res = await fetch('api/calendar', { headers: { 'x-app-password': cloud.pw } });
     let j = res.status === 404 ? { economic: [], earnings: [], localOnly: true } : await res.json();
     if (!res.ok && res.status !== 404) throw new Error(j.error || `오류 ${res.status}`);
     if (j.rawEconomic) j = { ...j, economic: Cal.parseEconomic(j.rawEconomic) };   // 로컬 개발 서버
