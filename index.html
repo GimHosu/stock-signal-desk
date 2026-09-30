@@ -257,6 +257,29 @@ ul.news li.pos > i { color: var(--good); } ul.news li.neg > i { color: var(--bad
 ul.news a { color: var(--text); text-decoration: none; }
 ul.news a:hover { text-decoration: underline; }
 ul.news .k { font-size: 11px; color: var(--muted); margin-top: 2px; }
+ul.news .orig { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+/* 용어 설명 */
+#dlgGloss { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); }
+.gloss { padding: 18px 20px; display: grid; gap: 10px; }
+.gloss-head { display: flex; justify-content: space-between; align-items: center; }
+.gloss-head h3 { margin: 0; font-size: 17px; }
+#glossQ { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.gloss-nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.gloss-nav button { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: var(--text-2); }
+.gloss-nav button:hover { color: var(--text); border-color: var(--accent); }
+.gloss-body { max-height: calc(100vh - 250px); overflow-y: auto; padding-right: 4px; }
+.gloss-body h4 { margin: 14px 0 6px; font-size: 13px; color: var(--accent); scroll-margin-top: 4px; }
+.gloss-body h4:first-child { margin-top: 0; }
+.gloss-body dl { margin: 0; display: grid; gap: 6px; }
+.gloss-body .gi { background: var(--surface-2); border-radius: 8px; padding: 8px 10px; }
+.gloss-body dt { font-weight: 600; font-size: 13px; }
+.gloss-body dd { margin: 2px 0 0; font-size: 13px; line-height: 1.6; color: var(--text-2); }
+.gloss-body dd.app { color: var(--text); font-size: 12px; }
+.gloss-body dd.app::before { content: '이 앱에서 · '; color: var(--accent); font-weight: 600; }
+.gloss-body mark { background: var(--good-bg); color: inherit; border-radius: 2px; }
+.qm { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 10px; font-weight: 700; cursor: pointer; padding: 0; margin-left: 4px; vertical-align: 1px; }
+.qm:hover { color: var(--accent); border-color: var(--accent); }
 
 .check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; margin-bottom: 8px; }
 .check input { width: 16px; height: 16px; accent-color: var(--accent); }
@@ -317,6 +340,7 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
       <div class="mkt" id="mkt" style="display:none"></div>
     </div>
     <div class="actions">
+      <button class="btn" id="btnGloss">용어 설명</button>
       <button class="btn" id="btnRefresh">새로고침</button>
       <button class="btn" id="btnSettings">설정</button>
       <button class="btn primary" id="btnAdd">+ 종목 추가</button>
@@ -349,7 +373,7 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
   <section id="viewDiscover" hidden>
     <div class="card">
       <div class="panel-head">
-        <div><h2>종목 발굴 · S&amp;P 500</h2><div class="count" id="scanMeta">스캔 결과를 불러오는 중…</div><div class="count" id="uniMeta"></div></div>
+        <div><h2>종목 발굴 · S&amp;P 500<button type="button" class="qm" data-gloss="basic" title="용어 설명" aria-label="용어 설명">?</button></h2><div class="count" id="scanMeta">스캔 결과를 불러오는 중…</div><div class="count" id="uniMeta"></div></div>
         <div class="actions">
           <button class="btn" id="btnUniverse" title="위키백과에서 최신 S&amp;P 500 편입·편출 종목을 반영합니다">목록 갱신</button>
           <button class="btn" id="btnScan">지금 스캔</button>
@@ -410,6 +434,18 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
   </form>
 </dialog>
 
+<dialog id="dlgGloss">
+  <div class="gloss">
+    <div class="gloss-head">
+      <h3>용어 설명</h3>
+      <button type="button" class="btn ghost" id="btnGlossClose" aria-label="닫기">닫기</button>
+    </div>
+    <input type="search" id="glossQ" placeholder="용어 검색 (예: RSI, 손익비, PER)" autocomplete="off">
+    <div class="gloss-nav" id="glossNav"></div>
+    <div class="gloss-body" id="glossBody"></div>
+  </div>
+</dialog>
+
 <dialog id="dlgLock">
   <form method="dialog" id="formLock">
     <h3>비밀번호 입력</h3>
@@ -464,6 +500,7 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
 <script src="/lib/scan.js"></script>
 <script src="/lib/fundamentals.js"></script>
 <script src="/lib/events.js"></script>
+<script src="/lib/glossary.js"></script>
 <script>
 // ────────────────────────── 저장소 ──────────────────────────
 const store = {
@@ -758,8 +795,10 @@ function eventsSection(a) {
     <div class="news-head">최근 7일 뉴스 ${nw.total}건 · <span class="badge ${nw.label === '긍정' ? 'buy' : nw.label === '부정' ? 'sell' : 'hold'}">심리 ${nw.label}</span> <span class="count">긍정 ${nw.pos} · 부정 ${nw.neg} · 중립 ${nw.neu}</span></div>
     ${nw.total ? `<ul class="news">${nw.items.map(x => `<li class="${x.tone}">
       <i>${x.tone === 'pos' ? '▲' : x.tone === 'neg' ? '▼' : '●'}</i>
-      <div><a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener noreferrer">${esc(x.headline)}</a>
-      <div class="k">${esc(x.source || '')} · ${ago(x.t)}${x.tags.length ? ` · ${x.tags.map(esc).join(', ')}` : ''}</div></div></li>`).join('')}</ul>` : '<div class="count" style="margin-top:6px">최근 7일간 관련 뉴스가 없습니다.</div>'}`;
+      <div><a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener noreferrer">${esc(x.ko || x.headline)}</a>
+      ${x.ko ? `<div class="orig">${esc(x.headline)}</div>` : ''}
+      <div class="k">${esc(x.source || '')} · ${ago(x.t)}${x.tags.length ? ` · ${x.tags.map(esc).join(', ')}` : ''}</div></div></li>`).join('')}</ul>
+    ${nw.items.some(x => x.ko) ? '<div class="count" style="margin-top:4px">한국어는 자동 번역입니다. 뉘앙스가 틀릴 수 있으니 원문(회색)도 함께 확인하세요.</div>' : ''}` : '<div class="count" style="margin-top:6px">최근 7일간 관련 뉴스가 없습니다.</div>'}`;
 }
 
 let chartTab = store.get('ssd.chartTab', 'price');
@@ -781,7 +820,7 @@ function renderDetail() {
       <div><div class="price-big num">${usd(a.price)}</div><div class="num ${cls(a.chg)}" style="text-align:right">${signed(a.chg)} (${pct(a.chgPct)})</div></div>
     </div>
     <div class="verdict ${a.key}">
-      <div><div class="small">종합 퀀트 등급</div><div class="big">${a.grade}<span class="big-sub num">${a.score}점</span></div></div>
+      <div><div class="small">종합 퀀트 등급${qm('basic')}</div><div class="big">${a.grade}<span class="big-sub num">${a.score}점</span></div></div>
       <div class="meter">
         <div class="meter-top"><span class="badge ${a.key}">${icon(a.key)} ${a.label}</span><span class="num">${a.score} / 100</span></div>
         <div class="meter-track"><div class="meter-dot" style="left:${a.score}%"></div></div>
@@ -791,7 +830,7 @@ function renderDetail() {
     ${live ? '<div class="live-note">장중 잠정 분석입니다. 오늘 봉이 아직 확정되지 않아 장 마감까지 점수가 바뀔 수 있습니다.</div>' : ''}
     ${warn.map(r => `<div class="warn-line">⚠ ${esc(r.text)} (${r.pts}점)</div>`).join('')}
 
-    <div class="section-title">다이버전스 & 매매 타점</div>
+    <div class="section-title">다이버전스 & 매매 타점${qm('risk')}</div>
     <div class="div-card ${dv.type}">
       <div class="div-head"><b>${dv.title}</b><span class="pill">${dv.status}</span></div>
       <div class="div-text">${esc(dv.text)}</div>
@@ -803,18 +842,18 @@ function renderDetail() {
       <div class="metric"><div class="k">손익비</div><div class="v num">1 : ${p.rr.toFixed(1)}</div><div class="k">${p.rr >= 2 ? '우수' : p.rr >= 1.5 ? '보통' : '낮음'}</div></div>
     </div>
 
-    <div class="section-title">5대 핵심 조건 <span class="count">${a.condMet} / ${a.condTotal} 충족${a.condTotal < 5 ? ' · 재무 제외' : ''}</span></div>
+    <div class="section-title">5대 핵심 조건${qm('basic')} <span class="count">${a.condMet} / ${a.condTotal} 충족${a.condTotal < 5 ? ' · 재무 제외' : ''}</span></div>
     <div class="conds">${a.conditions.map((c, i) => `<div class="cond ${c.ok === true ? 'ok' : c.ok === false ? 'no' : 'na'}">
       <div class="ch"><span>${i + 1}. ${c.name}</span><i>${c.ok === true ? '✓' : c.ok === false ? '✕' : '–'}</i></div>
       <div class="cv">${esc(c.value)}</div><div class="k">${esc(c.sub)}</div></div>`).join('')}</div>
 
-    <div class="section-title">퀀트 매트릭스 <span class="count">4 × 25점</span></div>
+    <div class="section-title">퀀트 매트릭스${qm('trend')} <span class="count">4 × 25점</span></div>
     <div class="mats">${a.matrices.map((m, i) => `<div class="mat">
       <div class="mh"><b>${i + 1}. ${m.name} <i>${m.en}</i></b><span class="pill num">${m.score} / 25</span></div>
       <ul>${m.items.map(it => `<li class="${it.pts ? 'hit' : ''}"><span>${it.label} <i>[${it.max}]</i></span><span class="num">${esc(it.value)}${it.pts ? ` <b>+${it.pts}</b>` : ''}</span></li>`).join('')}</ul>
     </div>`).join('')}</div>
 
-    <div class="section-title">펀더멘털 & 밸류에이션 <span class="count">${a.fin.available ? `SEC 공시 · ${a.fin.basis === 'TTM' ? `${a.fin.asOf}까지 최근 4분기` : `${a.fin.asOf} 회계연도`}` : '재무 정보 없음'}</span></div>
+    <div class="section-title">펀더멘털 & 밸류에이션${qm('fund')} <span class="count">${a.fin.available ? `SEC 공시 · ${a.fin.basis === 'TTM' ? `${a.fin.asOf}까지 최근 4분기` : `${a.fin.asOf} 회계연도`}` : '재무 정보 없음'}</span></div>
     ${a.fin.available ? `<div class="metrics fund">
       <div class="metric"><div class="k">순이익</div><div class="v num ${cls(a.fin.netIncome)}">${bigUsd(a.fin.netIncome)}</div></div>
       <div class="metric"><div class="k">매출</div><div class="v num">${bigUsd(a.fin.revenue)}</div><div class="k">${a.fin.revGrowth != null ? `연간 성장 ${pct(a.fin.revGrowth, 1)}` : ''}</div></div>
@@ -824,10 +863,10 @@ function renderDetail() {
       <div class="metric"><div class="k">배당수익률</div><div class="v num">${a.fin.divYield > 0 ? a.fin.divYield.toFixed(2) + '%' : '무배당'}</div></div>
     </div>` : `<div class="div-card"><div class="div-text">${esc(a.fin.reason || '재무 정보를 불러오는 중입니다.')}${a.fin.divYield > 0 ? ` · 배당수익률 ${a.fin.divYield.toFixed(2)}%` : ''}</div></div>`}
 
-    <div class="section-title">실적 & 뉴스 <span class="count">${a.events.available ? 'Finnhub · 뉴스는 키워드 기준 분류' : '연동 안 됨'}</span></div>
+    <div class="section-title">실적 & 뉴스${qm('events')} <span class="count">${a.events.available ? 'Finnhub · 뉴스는 키워드 기준 분류' : '연동 안 됨'}</span></div>
     ${eventsSection(a)}
 
-    <div class="section-title">기술적 지표 & MDD 차트 <span class="count">최근 6개월</span></div>
+    <div class="section-title">기술적 지표 & MDD 차트${qm('volatility')} <span class="count">최근 6개월</span></div>
     <div class="ctabs">${CHART_TABS.map(([k, l]) => `<button type="button" data-ct="${k}" class="${k === chartTab ? 'on' : ''}">${l}</button>`).join('')}</div>
     <div class="chart-box" id="chartBox"><div class="legend" id="legend"></div><svg class="chart" id="mainSvg"></svg><div class="tooltip" id="tip"></div></div>
 
@@ -1299,6 +1338,37 @@ function setView(v) {
   else renderDetail(); // 숨겨져 있던 동안 폭이 0이었던 차트를 다시 그림
 }
 document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => setView(b.dataset.view));
+
+// ────────────────────────── 용어 설명 ──────────────────────────
+const dlgG = document.getElementById('dlgGloss');
+function renderGlossary(q = '') {
+  const s = q.trim().toLowerCase();
+  const hl = (text) => { const e = esc(text); if (!s) return e; const i = e.toLowerCase().indexOf(esc(s).toLowerCase()); return i < 0 ? e : e.slice(0, i) + '<mark>' + e.slice(i, i + esc(s).length) + '</mark>' + e.slice(i + esc(s).length); };
+  const groups = GLOSSARY.map(g => ({ ...g, items: g.items.filter(it => !s || [it.t, it.d, it.app || ''].some(x => x.toLowerCase().includes(s))) })).filter(g => g.items.length);
+  document.getElementById('glossNav').innerHTML = GLOSSARY.map(g => `<button type="button" data-jump="${g.id}">${g.title}</button>`).join('');
+  document.getElementById('glossBody').innerHTML = groups.length ? groups.map(g => `<h4 id="gl-${g.id}">${g.title}</h4><dl>${g.items.map(it =>
+    `<div class="gi"><dt>${hl(it.t)}</dt><dd>${hl(it.d)}</dd>${it.app ? `<dd class="app">${hl(it.app)}</dd>` : ''}</div>`).join('')}</dl>`).join('')
+    : '<div class="empty">찾는 용어가 없습니다.</div>';
+}
+function openGlossary(groupId) {
+  const q = document.getElementById('glossQ'); q.value = '';
+  renderGlossary();
+  if (!dlgG.open) dlgG.showModal();
+  const target = groupId && document.getElementById('gl-' + groupId);
+  document.getElementById('glossBody').scrollTop = target ? target.offsetTop - document.getElementById('glossBody').offsetTop : 0;
+}
+const qm = (id) => `<button type="button" class="qm" data-gloss="${id}" title="용어 설명" aria-label="용어 설명">?</button>`;
+document.getElementById('btnGloss').onclick = () => openGlossary();
+document.getElementById('btnGlossClose').onclick = () => dlgG.close();
+dlgG.addEventListener('click', (e) => { if (e.target === dlgG) dlgG.close(); });   // 바깥 클릭으로 닫기
+document.getElementById('glossQ').addEventListener('input', (e) => renderGlossary(e.target.value));
+document.getElementById('glossNav').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-jump]'); if (!b) return;
+  document.getElementById('glossQ').value = ''; renderGlossary();
+  const t = document.getElementById('gl-' + b.dataset.jump), body = document.getElementById('glossBody');
+  body.scrollTop = t.offsetTop - body.offsetTop;
+});
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-gloss]'); if (b) { e.stopPropagation(); openGlossary(b.dataset.gloss); } }, true);
 
 // ────────────────────────── 시작 ──────────────────────────
 document.getElementById('btnRefresh').onclick = refreshAll;
