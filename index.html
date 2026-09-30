@@ -185,6 +185,9 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
 .mkt.open i { background: var(--good); animation: pulse 1.6s ease-in-out infinite; }
 .mkt.pre i, .mkt.post i { background: var(--warn); }
 @keyframes pulse { 50% { opacity: .3; } }
+.hdr-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.fx { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; font-weight: 500; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; }
+.fx b { color: var(--text); font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 600; }
 .live-note { font-size: 12px; color: var(--text-2); margin: -6px 0 4px; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: -6px 0 16px; }
 .tabs button { border: 0; background: none; padding: 9px 14px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
@@ -361,7 +364,7 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
     <div>
       <h1>Stock Signal Desk</h1>
       <div class="sub" id="updated">보유·관심 미국 주식 일일 기술적 분석</div>
-      <div class="mkt" id="mkt" style="display:none"></div>
+      <div class="hdr-chips"><div class="mkt" id="mkt" style="display:none"></div><div class="fx" id="fx" style="display:none"></div></div>
     </div>
     <div class="actions">
       <button class="btn" id="btnGloss">용어 설명</button>
@@ -768,7 +771,7 @@ async function refreshAll(silent = false) {
   await Promise.all([worker(), worker(), worker(), worker()]);
   let f = 0;   // 재무 정보(7일 캐시)·실적 & 뉴스(1시간 캐시) — 캐시가 있으면 요청하지 않음
   const fworker = async () => { while (f < syms.length) { const s = syms[f++]; await Promise.all([ensureFund(s), ensureEvents(s)]); } };
-  await Promise.all([fworker(), fworker(), fworker()]);
+  await Promise.all([fworker(), fworker(), fworker(), loadFx()]);
   reanalyze();
   recordHistory();
   lastRefresh = Date.now();
@@ -784,6 +787,31 @@ function reanalyze() {
 // ────────────────────────── 렌더링 ──────────────────────────
 function render() { renderMarket(); renderTiles(); renderList(); renderDetail(); }
 
+// ────────────────────────── 환율 (USD/KRW) ──────────────────────────
+let fx = null;   // { rate, chg, chgPct, time }
+async function loadFx() {
+  try {
+    const d = await fetchSeries('KRW=X');
+    const rate = d.close[d.close.length - 1], prev = d.close[d.close.length - 2];
+    fx = { rate, chg: rate - prev, chgPct: (rate / prev - 1) * 100, time: d.priceTime || d.date[d.date.length - 1] };
+  } catch { /* 환율을 못 받아도 앱은 그대로 동작 */ }
+  renderFx(); renderTiles();
+}
+function renderFx() {
+  const el = document.getElementById('fx');
+  if (!fx) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  const t = fx.time ? new Date(fx.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+  el.title = `원/달러 환율 (Yahoo Finance)${t ? ` · ${t} 기준` : ''}. 전일 대비 변동`;
+  el.innerHTML = `USD/KRW <b>${fx.rate.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b><span class="num ${cls(fx.chg)}">${fx.chg > 0 ? '▲' : fx.chg < 0 ? '▼' : ''}${Math.abs(fx.chg).toFixed(2)} (${pct(fx.chgPct)})</span>`;
+}
+// 달러 금액을 원화로 (1만원 단위 반올림), signedOut: 부호 표시
+const krw = (v, signedOut) => {
+  if (!fx || v == null || isNaN(v)) return '–';
+  const w = Math.round(v * fx.rate / 1e4) * 1e4;
+  return (signedOut ? (w > 0 ? '+' : w < 0 ? '−' : '') : '') + '₩' + Math.abs(w).toLocaleString('ko-KR');
+};
+
 function renderTiles() {
   let value = 0, cost = 0, day = 0, watchBuy = 0; const cnt = { buy: 0, hold: 0, sell: 0 };
   for (const h of holdings) {
@@ -793,9 +821,9 @@ function renderTiles() {
   }
   const pl = value - cost, plPct = cost ? pl / cost * 100 : 0, dayPct = value - day ? day / (value - day) * 100 : 0;
   document.getElementById('tiles').innerHTML = `
-    <div class="card tile"><div class="label">총 평가금액</div><div class="value num">${usd(value)}</div><div class="foot">매입 ${usd(cost)}</div></div>
-    <div class="card tile"><div class="label">총 평가손익</div><div class="value num ${cls(pl)}">${signed(pl)}</div><div class="foot num ${cls(pl)}">${pct(plPct)}</div></div>
-    <div class="card tile"><div class="label">오늘 변동</div><div class="value num ${cls(day)}">${signed(day)}</div><div class="foot num ${cls(day)}">${pct(dayPct)}</div></div>
+    <div class="card tile"><div class="label">총 평가금액</div><div class="value num">${usd(value)}</div><div class="foot">${fx ? `≈ ${krw(value)} · ` : ''}매입 ${usd(cost)}</div></div>
+    <div class="card tile"><div class="label">총 평가손익</div><div class="value num ${cls(pl)}">${signed(pl)}</div><div class="foot num ${cls(pl)}">${pct(plPct)}${fx ? ` · ≈ ${krw(pl, true)}` : ''}</div></div>
+    <div class="card tile"><div class="label">오늘 변동</div><div class="value num ${cls(day)}">${signed(day)}</div><div class="foot num ${cls(day)}">${pct(dayPct)}${fx ? ` · ≈ ${krw(day, true)}` : ''}</div></div>
     <div class="card tile"><div class="label">오늘의 신호</div>
       <div class="value" style="display:flex;gap:10px;font-size:15px;margin-top:8px;flex-wrap:wrap">
         <span class="badge buy">▲ 매수 ${cnt.buy}</span><span class="badge hold">● 보유 ${cnt.hold}</span><span class="badge sell">▼ 매도 ${cnt.sell}</span>
@@ -1622,7 +1650,7 @@ setInterval(autoRefresh, 15 * 1000);
   if (!holdings.some(h => h.symbol === selected)) selected = holdings[0]?.symbol || null;
   render();
   setView(view);
-  if (holdings.length) refreshAll();
+  if (holdings.length) refreshAll(); else loadFx();   // 보유 종목이 없어도 환율은 표시
   loadSectors(false, true);   // 종목 상세의 '소속 섹터' 표시용 (30분 캐시)
 })();
 </script>
