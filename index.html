@@ -78,7 +78,7 @@ body {
 .num { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 button, input { font: inherit; color: inherit; }
 
-.wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 64px; }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 20px 16px 64px; }
 header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 header.top h1 { font-size: 20px; margin: 0; letter-spacing: -0.02em; }
 header.top .sub { color: var(--muted); font-size: 12px; }
@@ -103,7 +103,7 @@ header.top .sub { color: var(--muted); font-size: 12px; }
 .tile .foot { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .up { color: var(--good); } .down { color: var(--bad); }
 
-.layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 16px; align-items: start; }
+.layout { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.3fr); gap: 16px; align-items: start; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); gap: 8px; }
 .panel-head h2 { font-size: 15px; margin: 0; }
 
@@ -202,6 +202,51 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
 .scan-progress .bar i.indet { width: 35%; animation: slide 1.2s ease-in-out infinite; }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
 [hidden] { display: none !important; }
+/* 퀀트 분석 상세 */
+.verdict .small { font-size: 12px; color: var(--text-2); }
+.verdict .big { font-size: 30px; line-height: 1.1; }
+.big-sub { font-size: 14px; font-weight: 600; margin-left: 6px; color: var(--text-2); }
+.meter-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+.meter-track { background: linear-gradient(90deg, var(--bad) 0%, var(--hold-bg) 45%, var(--good) 100%); }
+.warn-line { font-size: 12px; color: var(--bad); background: var(--bad-bg); border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; }
+.pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); color: var(--text-2); white-space: nowrap; }
+.div-card { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; background: var(--surface-2); }
+.div-card.bull { border-color: var(--good); } .div-card.bear { border-color: var(--bad); }
+.div-card.bull .pill { color: var(--good); } .div-card.bear .pill { color: var(--bad); }
+.div-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
+.div-text { font-size: 12px; color: var(--text-2); margin-top: 4px; }
+.metrics.plan .v { font-size: 17px; font-weight: 600; }
+.conds { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
+.cond { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; background: var(--surface-2); }
+.cond.ok { border-color: var(--good); } .cond.na { opacity: .6; }
+.cond .ch { display: flex; justify-content: space-between; gap: 4px; font-size: 11px; color: var(--text-2); }
+.cond .ch i { font-style: normal; font-weight: 700; }
+.cond.ok .ch i { color: var(--good); } .cond.no .ch i { color: var(--bad); }
+.cond .cv { font-size: 14px; font-weight: 600; margin: 2px 0; }
+.cond .k { font-size: 11px; color: var(--muted); }
+.mats { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 8px; }
+.mat { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); }
+.mh { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 13px; margin-bottom: 6px; }
+.mh i { font-style: normal; font-weight: 400; font-size: 11px; color: var(--muted); }
+.mat ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.mat li { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); }
+.mat li span:last-child { text-align: right; }
+.mat li i { font-style: normal; font-size: 10px; }
+.mat li.hit { color: var(--text); }
+.mat li b { color: var(--good); }
+.ctabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+.ctabs button { border: 1px solid var(--border); background: var(--surface); border-radius: 7px; padding: 5px 10px; font-size: 12px; cursor: pointer; color: var(--text-2); }
+.ctabs button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.report { display: grid; gap: 8px; }
+.rp2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
+.rp { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); }
+.rp h4 { margin: 0 0 4px; font-size: 13px; color: var(--accent); }
+.rp p { margin: 0; font-size: 13px; line-height: 1.65; }
+.rp.risk { border-color: var(--bad); }
+.rp.risk h4 { color: var(--bad); }
+.rp.risk ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; }
+.gs { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+
 .check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; margin-bottom: 8px; }
 .check input { width: 16px; height: 16px; accent-color: var(--accent); }
 .run-log { font-size: 12px; color: var(--text-2); background: var(--surface-2); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; line-height: 1.6; }
@@ -305,10 +350,10 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
         <div class="dist" id="dist"></div>
         <div class="filter-row">
           <select id="fMin" aria-label="최소 점수">
-            <option value="40">+40 이상 (강력 매수)</option>
-            <option value="30">+30 이상</option>
-            <option value="15">+15 이상 (매수 이상)</option>
-            <option value="-100">전체</option>
+            <option value="50">50점 이상 (강력 매수)</option>
+            <option value="44">44점 이상 (매수 이상)</option>
+            <option value="32">32점 이상 (보유 이상)</option>
+            <option value="0">전체</option>
           </select>
           <select id="fSector" aria-label="섹터"><option value="">전체 섹터</option></select>
           <select id="fSort" aria-label="정렬">
@@ -494,14 +539,15 @@ const icon = (key) => key === 'buy' ? '▲' : key === 'sell' ? '▼' : '●';
 function recordHistory() {
   const today = ymd(new Date());
   signalHistory[today] = signalHistory[today] || {};
-  for (const h of holdings) { const a = analysis[h.symbol]; if (a) signalHistory[today][h.symbol] = { score: a.score, label: a.label }; }
+  for (const h of holdings) { const a = analysis[h.symbol]; if (a) signalHistory[today][h.symbol] = { score: a.score, label: a.label, v: a.v }; }
   const days = Object.keys(signalHistory).sort();
   while (days.length > 90) delete signalHistory[days.shift()];
   store.set('ssd.history', signalHistory);
 }
 function previousSignal(symbol) {
   const today = ymd(new Date());
-  const days = Object.keys(signalHistory).filter(d => d < today && signalHistory[d][symbol]).sort();
+  // 점수 체계가 바뀌기 전의 기록(v 없음)과는 비교하지 않는다
+  const days = Object.keys(signalHistory).filter(d => d < today && signalHistory[d][symbol] && signalHistory[d][symbol].v === Signal.SIGNAL_VERSION).sort();
   return days.length ? { date: days[days.length - 1], ...signalHistory[days[days.length - 1]][symbol] } : null;
 }
 
@@ -616,7 +662,7 @@ function renderTable(area, list, watch) {
       <td><div class="sym">${esc(h.symbol)}</div><div class="sym-name">${esc(d.name)}</div></td>
       <td class="r num">${usd(a.price)}<div class="num ${cls(a.chg)}" style="font-size:12px">${pct(a.chgPct)}</div></td>
       ${middle}
-      <td><span class="badge ${a.key}">${icon(a.key)} ${a.label}</span>${changed}</td>
+      <td><span class="badge ${a.key}">${icon(a.key)} ${a.label}</span><span class="gs">${a.grade}등급 · ${a.score}점</span>${changed}</td>
       ${editBtn(h)}</tr>`;
   }).join('');
   const head = watch
@@ -631,65 +677,88 @@ function renderTable(area, list, watch) {
   area.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openHolding(b.dataset.edit)));
 }
 
+let chartTab = store.get('ssd.chartTab', 'price');
+const CHART_TABS = [['price', '가격 & 볼린저 / 200일선'], ['macd', 'MACD (12,26,9)'], ['stoch', '스토캐스틱'], ['rsi', 'RSI (14)'], ['mdd', 'MDD 낙폭 추이']];
+
 function renderDetail() {
   const card = document.getElementById('detailCard');
   const h = holdings.find(x => x.symbol === selected);
   const a = h && analysis[h.symbol], d = h && data[h.symbol];
   if (!h || !a) { card.innerHTML = `<div class="empty">${h && errors[h.symbol] ? esc(errors[h.symbol]) : '종목을 선택하면 상세 분석이 표시됩니다.'}</div>`; return; }
-  const pos = (a.score + 100) / 2, live = marketState().key === 'open';
-  const reasons = [...a.reasons].sort((x, y) => Math.abs(y.pts) - Math.abs(x.pts)).map(r =>
-    `<li><span class="pts num ${r.pts > 0 ? 'pos' : r.pts < 0 ? 'neg' : 'zero'}">${r.pts > 0 ? '+' : ''}${r.pts}</span><span>${esc(r.text)}</span></li>`).join('');
+  const live = marketState().key === 'open';
+  const p = a.plan, dv = a.divergence, rp = a.report;
+  const vsEntry = (x) => pct((x / p.entry - 1) * 100, 1);
+  const warn = a.reasons.filter(r => r.pts < 0);
+
   card.innerHTML = `<div class="detail">
     <div class="detail-top">
       <div><div class="t">${esc(h.symbol)}${h.watch ? '<span class="tag">관심 종목</span>' : ''}</div><div class="n">${esc(d.name)} · ${live && d.priceTime ? `${d.priceTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 실시간 가격 기준` : `${a.date.toLocaleDateString('ko-KR')} 종가 기준`}</div></div>
       <div><div class="price-big num">${usd(a.price)}</div><div class="num ${cls(a.chg)}" style="text-align:right">${signed(a.chg)} (${pct(a.chgPct)})</div></div>
     </div>
     <div class="verdict ${a.key}">
-      <div><div style="font-size:12px;color:var(--text-2)">종합 신호</div><div class="big">${icon(a.key)} ${a.label}</div></div>
+      <div><div class="small">종합 퀀트 등급</div><div class="big">${a.grade}<span class="big-sub num">${a.score}점</span></div></div>
       <div class="meter">
-        <div style="font-size:12px;color:var(--text-2);text-align:right" class="num">점수 ${a.score > 0 ? '+' : ''}${a.score}</div>
-        <div class="meter-track"><div class="meter-dot" style="left:${pos}%"></div></div>
-        <div class="meter-labels"><span>매도 −100</span><span>보유</span><span>매수 +100</span></div>
+        <div class="meter-top"><span class="badge ${a.key}">${icon(a.key)} ${a.label}</span><span class="num">${a.score} / 100</span></div>
+        <div class="meter-track"><div class="meter-dot" style="left:${a.score}%"></div></div>
+        <div class="meter-labels"><span>0</span><span>50</span><span>100</span></div>
       </div>
     </div>
-    ${live ? '<div class="live-note">장중 잠정 신호입니다. 오늘 봉이 아직 확정되지 않아 장 마감까지 신호가 바뀔 수 있습니다.</div>' : ''}
-    <div class="section-title">판단 근거</div>
-    <ul class="reasons">${reasons}</ul>
-    ${h.watch ? `<div class="section-title">진입 참고 가격</div>
-    <div class="metrics">
-      <div class="metric"><div class="k">52주 고점 대비</div><div class="v num ${cls(a.price / a.high52 - 1)}">${pct((a.price / a.high52 - 1) * 100, 1)}</div></div>
-      <div class="metric"><div class="k">52주 저점 대비</div><div class="v num ${cls(a.price / a.low52 - 1)}">${pct((a.price / a.low52 - 1) * 100, 1)}</div></div>
-      <div class="metric"><div class="k">20일선</div><div class="v num">${usd(a.s20)}</div></div>
-      <div class="metric"><div class="k">20일선 대비</div><div class="v num ${cls(a.price - a.s20)}">${pct((a.price / a.s20 - 1) * 100, 1)}</div></div>
-    </div>` : `<div class="section-title">내 포지션</div>
+    ${live ? '<div class="live-note">장중 잠정 분석입니다. 오늘 봉이 아직 확정되지 않아 장 마감까지 점수가 바뀔 수 있습니다.</div>' : ''}
+    ${warn.map(r => `<div class="warn-line">⚠ ${esc(r.text)} (${r.pts}점)</div>`).join('')}
+
+    <div class="section-title">다이버전스 & 매매 타점</div>
+    <div class="div-card ${dv.type}">
+      <div class="div-head"><b>${dv.title}</b><span class="pill">${dv.status}</span></div>
+      <div class="div-text">${esc(dv.text)}</div>
+    </div>
+    <div class="metrics plan">
+      <div class="metric"><div class="k">추천 진입가</div><div class="v num">${usd(p.entry)}</div><div class="k">현재가 대비 ${pct(p.entryGap, 1)}</div></div>
+      <div class="metric"><div class="k">목표 익절가</div><div class="v num up">${usd(p.tp)}</div><div class="k">진입가 대비 ${vsEntry(p.tp)}</div></div>
+      <div class="metric"><div class="k">손절 기준가</div><div class="v num down">${usd(p.sl)}</div><div class="k">진입가 대비 ${vsEntry(p.sl)}</div></div>
+      <div class="metric"><div class="k">손익비</div><div class="v num">1 : ${p.rr.toFixed(1)}</div><div class="k">${p.rr >= 2 ? '우수' : p.rr >= 1.5 ? '보통' : '낮음'}</div></div>
+    </div>
+
+    <div class="section-title">5대 핵심 조건 <span class="count">${a.condMet} / ${a.condTotal} 충족 · 재무 제외</span></div>
+    <div class="conds">${a.conditions.map((c, i) => `<div class="cond ${c.ok === true ? 'ok' : c.ok === false ? 'no' : 'na'}">
+      <div class="ch"><span>${i + 1}. ${c.name}</span><i>${c.ok === true ? '✓' : c.ok === false ? '✕' : '–'}</i></div>
+      <div class="cv">${esc(c.value)}</div><div class="k">${esc(c.sub)}</div></div>`).join('')}</div>
+
+    <div class="section-title">퀀트 매트릭스 <span class="count">4 × 25점</span></div>
+    <div class="mats">${a.matrices.map((m, i) => `<div class="mat">
+      <div class="mh"><b>${i + 1}. ${m.name} <i>${m.en}</i></b><span class="pill num">${m.score} / 25</span></div>
+      <ul>${m.items.map(it => `<li class="${it.pts ? 'hit' : ''}"><span>${it.label} <i>[${it.max}]</i></span><span class="num">${esc(it.value)}${it.pts ? ` <b>+${it.pts}</b>` : ''}</span></li>`).join('')}</ul>
+    </div>`).join('')}</div>
+
+    <div class="section-title">기술적 지표 & MDD 차트 <span class="count">최근 6개월</span></div>
+    <div class="ctabs">${CHART_TABS.map(([k, l]) => `<button type="button" data-ct="${k}" class="${k === chartTab ? 'on' : ''}">${l}</button>`).join('')}</div>
+    <div class="chart-box" id="chartBox"><div class="legend" id="legend"></div><svg class="chart" id="mainSvg"></svg><div class="tooltip" id="tip"></div></div>
+
+    <div class="section-title">종합 진단 <span class="count">규칙 기반 자동 작성</span></div>
+    <div class="report">
+      <div class="rp"><h4>종합 총평</h4><p>${esc(rp.summary)}</p></div>
+      <div class="rp2">
+        <div class="rp"><h4>MDD 낙폭 & 반등 분석</h4><p>${esc(rp.mdd)}</p></div>
+        <div class="rp"><h4>기술적 지표 & 다이버전스</h4><p>${esc(rp.tech)}</p></div>
+      </div>
+      <div class="rp"><h4>매매 시나리오</h4><p>${esc(rp.plan)}</p></div>
+      <div class="rp risk"><h4>⚠ 유의할 위험 요인</h4><ul>${rp.risks.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
+    </div>
+
+    ${h.watch ? '' : `<div class="section-title">내 포지션</div>
     <div class="metrics">
       <div class="metric"><div class="k">평균단가</div><div class="v num">${usd(h.avgCost)}</div></div>
-      <div class="metric"><div class="k">평가손익</div><div class="v num ${cls(a.plPct)}">${signed((a.price - h.avgCost) * h.shares)}</div></div>
+      <div class="metric"><div class="k">평가손익</div><div class="v num ${cls(a.plPct)}">${signed((a.price - h.avgCost) * h.shares)}</div><div class="k">${pct(a.plPct, 1)}</div></div>
       <div class="metric"><div class="k">손절가 (${settings.stopPct}%)</div><div class="v num">${usd(a.stopPrice)}</div></div>
       <div class="metric"><div class="k">익절가 (+${settings.takePct}%)</div><div class="v num">${usd(a.takePrice)}</div></div>
     </div>`}
-    <div class="section-title">주요 지표</div>
-    <div class="metrics">
-      <div class="metric"><div class="k">RSI (14)</div><div class="v num">${a.rsi != null ? a.rsi.toFixed(1) : '–'}</div></div>
-      <div class="metric"><div class="k">50일선</div><div class="v num">${usd(a.s50)}</div></div>
-      <div class="metric"><div class="k">200일선</div><div class="v num">${usd(a.s200)}</div></div>
-      <div class="metric"><div class="k">52주 고/저</div><div class="v num" style="font-size:12px">${usd(a.high52, 0)} / ${usd(a.low52, 0)}</div></div>
-    </div>
-    <div class="section-title">최근 6개월 주가</div>
-    <div class="chart-box" id="chartBox">
-      <div class="legend">
-        <span><i style="background:var(--series-1)"></i>종가</span>
-        <span><i style="background:var(--series-2)"></i>20일선</span>
-        <span><i style="background:var(--series-3)"></i>50일선</span>
-        ${h.watch ? '' : '<span id="costLegend"><i class="dash"></i>평균단가</span>'}
-      </div>
-      <svg class="chart" id="priceSvg"></svg>
-      <div class="section-title" style="margin-top:10px">RSI (14)</div>
-      <svg class="chart" id="rsiSvg"></svg>
-      <div class="tooltip" id="tip"></div>
-    </div>
   </div>`;
-  drawCharts(h, a, d);
+
+  card.querySelectorAll('[data-ct]').forEach(b => b.onclick = () => {
+    chartTab = b.dataset.ct; store.set('ssd.chartTab', chartTab);
+    card.querySelectorAll('[data-ct]').forEach(x => x.classList.toggle('on', x === b));
+    drawChart(h, a, d);
+  });
+  drawChart(h, a, d);
 }
 
 // ────────────────────────── 차트 ──────────────────────────
@@ -699,72 +768,100 @@ function niceTicks(min, max, count = 4) {
   const out = []; for (let v = Math.ceil(min / step) * step; v <= max + 1e-9; v += step) out.push(v);
   return out;
 }
-function drawCharts(h, a, d) {
-  const box = document.getElementById('chartBox'), pSvg = document.getElementById('priceSvg'), rSvg = document.getElementById('rsiSvg'), tip = document.getElementById('tip');
-  const N = Math.min(126, d.close.length), s = d.close.length - N;
-  const idx = Array.from({ length: N }, (_, i) => s + i);
-  const W = pSvg.clientWidth || 560, H = 240, RH = 90, m = { l: 4, r: 52, t: 8, b: 22 };
-  const pw = W - m.l - m.r;
-  const x = (i) => m.l + (i - s) / (N - 1) * pw;
+function drawChart(h, a, d) {
+  const svg = document.getElementById('mainSvg'), tip = document.getElementById('tip'), box = document.getElementById('chartBox'), leg = document.getElementById('legend');
+  if (!svg) return;
+  const S = a.series, N = Math.min(126, d.close.length), s0 = d.close.length - N;
+  const idx = Array.from({ length: N }, (_, i) => s0 + i);
+  const num2 = (v) => v == null ? '–' : v.toFixed(2);
+  const num1 = (v) => v == null ? '–' : v.toFixed(1);
+  const costOk = !h.watch && h.avgCost > 0;
+  const cfg = {
+    price: { H: 260, fmt: usd, band: [S.bbLo, S.bbUp], lines: [
+      { v: S.bbUp, c: 'var(--muted)', w: 1, dash: '3 3', name: '볼린저 상·하단' },
+      { v: S.bbLo, c: 'var(--muted)', w: 1, dash: '3 3', hideLegend: true, name: '볼린저 하단' },
+      { v: S.bbMid, c: 'var(--series-3)', w: 1.5, name: '볼린저 중단 (20일)' },
+      { v: S.s200, c: 'var(--series-2)', w: 1.5, name: '200일선' },
+      { v: d.close, c: 'var(--series-1)', w: 2, name: '종가', main: true },
+    ], refs: costOk ? [{ y: h.avgCost, label: '평균단가', soft: true }] : [] },
+    macd: { H: 200, fmt: num2, bars: S.macdHist, lines: [
+      { v: S.macd, c: 'var(--series-1)', w: 2, name: 'MACD', main: true },
+      { v: S.macdSig, c: 'var(--series-2)', w: 1.5, name: 'Signal' },
+    ], refs: [{ y: 0 }] },
+    stoch: { H: 200, fmt: num1, dom: [0, 100], zone: [20, 80], lines: [
+      { v: S.stK, c: 'var(--series-1)', w: 2, name: '%K', main: true },
+      { v: S.stD, c: 'var(--series-2)', w: 1.5, name: '%D' },
+    ], refs: [{ y: 20 }, { y: 80 }] },
+    rsi: { H: 200, fmt: num1, dom: [0, 100], zone: [30, 70], lines: [{ v: S.rsi, c: 'var(--series-1)', w: 2, name: 'RSI (14)', main: true }], refs: [{ y: 30 }, { y: 70 }] },
+    mdd: { H: 200, fmt: (v) => v == null ? '–' : v.toFixed(1) + '%', area: true, lines: [{ v: S.dd, c: 'var(--bad)', w: 2, name: '고점 대비 낙폭', main: true }], refs: [{ y: a.mdd.max, label: '2년 MDD' }] },
+  }[chartTab] || null;
+  if (!cfg) return;
 
-  const vals = idx.flatMap(i => [d.close[i], a.series.s20[i], a.series.s50[i]]).filter(v => v != null);
-  let lo = Math.min(...vals), hi = Math.max(...vals);
-  const costInRange = !h.watch && h.avgCost >= lo * 0.85 && h.avgCost <= hi * 1.15;
-  if (costInRange) { lo = Math.min(lo, h.avgCost); hi = Math.max(hi, h.avgCost); }
-  else if (!h.watch) document.getElementById('costLegend').innerHTML = `평균단가 ${usd(h.avgCost)} (차트 범위 밖)`;
-  const pad = (hi - lo) * 0.06; lo -= pad; hi += pad;
-  const y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b);
-  const path = (arr, yf) => { let p = '', pen = false; for (const i of idx) { if (arr[i] == null) { pen = false; continue; } p += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + yf(arr[i]).toFixed(1); pen = true; } return p; };
+  leg.innerHTML = cfg.lines.filter(l => !l.hideLegend).map(l => `<span><i style="${l.dash ? `background:repeating-linear-gradient(90deg, ${l.c} 0 4px, transparent 4px 7px)` : `background:${l.c}`}"></i>${l.name}</span>`).join('')
+    + (cfg.bars ? '<span><i style="background:var(--good);height:8px;width:6px"></i>히스토그램</span>' : '')
+    + (cfg.refs.some(r => r.label) ? cfg.refs.filter(r => r.label).map(r => `<span><i class="dash"></i>${r.label}</span>`).join('') : '');
 
-  const grid = niceTicks(lo, hi).map(v => `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${W - m.r + 6}" y="${y(v) + 4}">${v >= 1000 ? v.toFixed(0) : v.toFixed(v < 10 ? 2 : 0)}</text>`).join('');
-  let months = '', lastM = -1;
-  for (const i of idx) { const mo = d.date[i].getMonth(); if (mo !== lastM && i !== s) months += `<text x="${x(i)}" y="${H - 6}" text-anchor="middle">${mo + 1}월</text>`; lastM = mo; }
-  const cost = costInRange ? `<line x1="${m.l}" x2="${W - m.r}" y1="${y(h.avgCost)}" y2="${y(h.avgCost)}" stroke="var(--muted)" stroke-dasharray="4 3"/>` : '';
-  pSvg.setAttribute('viewBox', `0 0 ${W} ${H}`); pSvg.setAttribute('height', H);
-  pSvg.innerHTML = `${grid}${months}${cost}
-    <path d="${path(a.series.s50, y)}" fill="none" stroke="var(--series-3)" stroke-width="1.5"/>
-    <path d="${path(a.series.s20, y)}" fill="none" stroke="var(--series-2)" stroke-width="1.5"/>
-    <path d="${path(d.close, y)}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"/>
-    <circle cx="${x(s + N - 1)}" cy="${y(d.close[s + N - 1])}" r="4" fill="var(--series-1)" stroke="var(--surface)" stroke-width="2"/>
-    <g id="pHover" style="display:none"><line id="pLine" y1="${m.t}" y2="${H - m.b}" stroke="var(--text-2)" stroke-width="1"/>
-      <circle id="pDot" r="4" fill="var(--series-1)" stroke="var(--surface)" stroke-width="2"/></g>
-    <rect x="${m.l}" y="0" width="${pw}" height="${H}" fill="transparent" id="pHit"/>`;
-
-  const ry = (v) => 6 + (1 - v / 100) * (RH - 12);
-  rSvg.setAttribute('viewBox', `0 0 ${W} ${RH}`); rSvg.setAttribute('height', RH);
-  rSvg.innerHTML = `
-    <rect x="${m.l}" y="${ry(70)}" width="${pw}" height="${ry(30) - ry(70)}" fill="var(--surface-2)"/>
-    ${[30, 70].map(v => `<line x1="${m.l}" x2="${W - m.r}" y1="${ry(v)}" y2="${ry(v)}" stroke="var(--grid)" stroke-dasharray="3 3"/><text x="${W - m.r + 6}" y="${ry(v) + 4}">${v}</text>`).join('')}
-    <path d="${path(a.series.rsi, ry)}" fill="none" stroke="var(--series-1)" stroke-width="1.5"/>
-    <g id="rHover" style="display:none"><line id="rLine" y1="0" y2="${RH}" stroke="var(--text-2)" stroke-width="1"/><circle id="rDot" r="3.5" fill="var(--series-1)" stroke="var(--surface)" stroke-width="2"/></g>
-    <rect x="${m.l}" y="0" width="${pw}" height="${RH}" fill="transparent" id="rHit"/>`;
-
-  const show = (ev, svg) => {
-    const rect = svg.getBoundingClientRect(), px = (ev.clientX - rect.left) * (W / rect.width);
-    const i = Math.max(s, Math.min(s + N - 1, Math.round(s + (px - m.l) / pw * (N - 1))));
-    const X = x(i);
-    for (const [g, l, dot, cy] of [['pHover', 'pLine', 'pDot', y(d.close[i])], ['rHover', 'rLine', 'rDot', a.series.rsi[i] != null ? ry(a.series.rsi[i]) : -10]]) {
-      document.getElementById(g).style.display = '';
-      document.getElementById(l).setAttribute('x1', X); document.getElementById(l).setAttribute('x2', X);
-      document.getElementById(dot).setAttribute('cx', X); document.getElementById(dot).setAttribute('cy', cy);
+  const W = svg.clientWidth || 560, H = cfg.H, m = { l: 4, r: 56, t: 8, b: 22 }, pw = W - m.l - m.r;
+  const x = (i) => m.l + (i - s0) / (N - 1) * pw;
+  let lo, hi;
+  if (cfg.dom) [lo, hi] = cfg.dom;
+  else {
+    const vals = idx.flatMap(i => cfg.lines.map(l => l.v[i]).concat(cfg.bars ? [cfg.bars[i]] : [])).filter(v => v != null)
+      .concat(cfg.refs.map(r => r.y));
+    lo = Math.min(...vals); hi = Math.max(...vals);
+    if (chartTab === 'price' && costOk && (h.avgCost < lo * 0.85 || h.avgCost > hi * 1.15)) { // 평균단가가 너무 멀면 축에서 제외
+      cfg.refs = []; const v2 = idx.flatMap(i => cfg.lines.map(l => l.v[i])).filter(v => v != null); lo = Math.min(...v2); hi = Math.max(...v2);
     }
-    const row = (sw, k, v) => `<div class="row"><span>${sw ? `<i class="sw" style="background:${sw}"></i>` : ''}${k}</span><span class="num">${v}</span></div>`;
-    tip.innerHTML = `<div class="d">${d.date[i].toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' })}</div>
-      ${row('var(--series-1)', '종가', usd(d.close[i]))}${row('var(--series-2)', '20일선', usd(a.series.s20[i]))}${row('var(--series-3)', '50일선', usd(a.series.s50[i]))}
-      ${row('', 'RSI', a.series.rsi[i] != null ? a.series.rsi[i].toFixed(1) : '–')}${h.watch ? '' : row('', '수익률', pct((d.close[i] / h.avgCost - 1) * 100, 1))}`;
-    tip.style.display = 'block';
-    const bx = box.getBoundingClientRect(), sx = X * (rect.width / W) + rect.left - bx.left;
-    const tw = tip.offsetWidth;
-    tip.style.left = (sx + 14 + tw > bx.width ? sx - tw - 14 : sx + 14) + 'px';
-    tip.style.top = (ev.clientY - bx.top - 30) + 'px';
-  };
-  const hide = () => { tip.style.display = 'none'; document.getElementById('pHover').style.display = 'none'; document.getElementById('rHover').style.display = 'none'; };
-  for (const [hit, svg] of [['pHit', pSvg], ['rHit', rSvg]]) {
-    const el = document.getElementById(hit);
-    el.addEventListener('pointermove', (e) => show(e, svg));
-    el.addEventListener('pointerdown', (e) => show(e, svg));
-    el.addEventListener('pointerleave', hide);
+    if (chartTab === 'mdd') hi = 0;
+    const pad = (hi - lo) * 0.06 || 1; lo -= pad; if (chartTab !== 'mdd') hi += pad;
   }
+  const y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b);
+  const path = (arr) => { let s = '', pen = false; for (const i of idx) { if (arr[i] == null) { pen = false; continue; } s += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(arr[i]).toFixed(1); pen = true; } return s; };
+
+  let g = niceTicks(lo, hi).map(v => `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${W - m.r + 6}" y="${y(v) + 4}">${Math.abs(v) >= 1000 ? v.toFixed(0) : Math.abs(v) < 10 && chartTab !== 'mdd' ? v.toFixed(v % 1 ? 2 : 0) : v.toFixed(0)}</text>`).join('');
+  let lastM = -1;
+  for (const i of idx) { const mo = d.date[i].getMonth(); if (mo !== lastM && i !== s0) g += `<text x="${x(i)}" y="${H - 6}" text-anchor="middle">${mo + 1}월</text>`; lastM = mo; }
+  if (cfg.zone) g += `<rect x="${m.l}" y="${y(cfg.zone[1])}" width="${pw}" height="${y(cfg.zone[0]) - y(cfg.zone[1])}" fill="var(--surface-2)"/>`;
+  if (cfg.band) {
+    const [bl, bu] = cfg.band, pts = idx.filter(i => bl[i] != null);
+    if (pts.length) g += `<path d="M${pts.map(i => `${x(i).toFixed(1)} ${y(bu[i]).toFixed(1)}`).join('L')}L${pts.reverse().map(i => `${x(i).toFixed(1)} ${y(bl[i]).toFixed(1)}`).join('L')}Z" fill="var(--series-1)" opacity=".06"/>`;
+  }
+  if (cfg.bars) {
+    const bw = Math.max(1, pw / N - 1.5);
+    g += idx.filter(i => cfg.bars[i] != null).map(i => { const v = cfg.bars[i]; return `<rect x="${x(i) - bw / 2}" y="${Math.min(y(v), y(0))}" width="${bw}" height="${Math.abs(y(v) - y(0))}" fill="${v >= 0 ? 'var(--good)' : 'var(--bad)'}" opacity=".45"/>`; }).join('');
+  }
+  if (cfg.area) { const main = cfg.lines[0].v; g += `<path d="${path(main)}L${x(s0 + N - 1)} ${y(0)}L${x(s0)} ${y(0)}Z" fill="var(--bad)" opacity=".1"/>`; }
+  g += cfg.refs.filter(r => r.y >= lo && r.y <= hi).map(r => `<line x1="${m.l}" x2="${W - m.r}" y1="${y(r.y)}" y2="${y(r.y)}" stroke="var(--muted)" stroke-dasharray="4 3"/>${r.label ? `<text x="${m.l + 4}" y="${y(r.y) - 4}">${r.label}</text>` : ''}`).join('');
+  g += cfg.lines.map(l => `<path d="${path(l.v)}" fill="none" stroke="${l.c}" stroke-width="${l.w}"${l.dash ? ` stroke-dasharray="${l.dash}"` : ''} stroke-linejoin="round"/>`).join('');
+  const mainL = cfg.lines.find(l => l.main);
+  if (mainL.v[s0 + N - 1] != null) g += `<circle cx="${x(s0 + N - 1)}" cy="${y(mainL.v[s0 + N - 1])}" r="4" fill="${mainL.c}" stroke="var(--surface)" stroke-width="2"/>`;
+  g += `<g id="hov" style="display:none"><line id="hovL" y1="${m.t}" y2="${H - m.b}" stroke="var(--text-2)"/>${cfg.lines.filter(l => !l.dash).map((l, k) => `<circle id="hovD${k}" r="3.5" fill="${l.c}" stroke="var(--surface)" stroke-width="2"/>`).join('')}</g>`;
+  g += `<rect id="hit" x="${m.l}" y="0" width="${pw}" height="${H}" fill="transparent"/>`;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('height', H);
+  svg.innerHTML = g;
+
+  const solid = cfg.lines.filter(l => !l.dash);
+  const show = (ev) => {
+    const rect = svg.getBoundingClientRect(), px = (ev.clientX - rect.left) * (W / rect.width);
+    const i = Math.max(s0, Math.min(s0 + N - 1, Math.round(s0 + (px - m.l) / pw * (N - 1)))), X = x(i);
+    document.getElementById('hov').style.display = '';
+    document.getElementById('hovL').setAttribute('x1', X); document.getElementById('hovL').setAttribute('x2', X);
+    solid.forEach((l, k) => { const el = document.getElementById('hovD' + k); el.setAttribute('cx', X); el.setAttribute('cy', l.v[i] == null ? -20 : y(l.v[i])); });
+    const row = (sw, k, v) => `<div class="row"><span>${sw ? `<i class="sw" style="background:${sw}"></i>` : ''}${k}</span><span class="num">${v}</span></div>`;
+    tip.innerHTML = `<div class="d">${d.date[i].toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' })}</div>`
+      + cfg.lines.filter(l => !l.hideLegend).map(l => row(l.c, l.name === '볼린저 상·하단' ? '볼린저 상단' : l.name, cfg.fmt(l.v[i]))).join('')
+      + (chartTab === 'price' ? row('var(--muted)', '볼린저 하단', usd(S.bbLo[i])) : '')
+      + (cfg.bars ? row('', '히스토그램', num2(cfg.bars[i])) : '')
+      + (chartTab === 'price' && costOk ? row('', '수익률', pct((d.close[i] / h.avgCost - 1) * 100, 1)) : '');
+    tip.style.display = 'block';
+    const bx = box.getBoundingClientRect(), sx = X * (rect.width / W) + rect.left - bx.left, tw = tip.offsetWidth;
+    tip.style.left = (sx + 14 + tw > bx.width ? sx - tw - 14 : sx + 14) + 'px';
+    tip.style.top = Math.max(0, ev.clientY - bx.top - 40) + 'px';
+  };
+  const hit = document.getElementById('hit');
+  hit.addEventListener('pointermove', show);
+  hit.addEventListener('pointerdown', show);
+  hit.addEventListener('pointerleave', () => { tip.style.display = 'none'; document.getElementById('hov').style.display = 'none'; });
 }
 
 // ────────────────────────── 종목 추가/편집 ──────────────────────────
@@ -919,7 +1016,9 @@ const LABELS = ['강력 매수', '매수', '보유', '매도', '강력 매도'];
 const labelKey = (l) => l.includes('매수') ? 'buy' : l.includes('매도') ? 'sell' : 'hold';
 let scanData = null, scanLoaded = false, scanning = false;
 const expanded = new Set();
-const disc = Object.assign({ min: '40', sector: '', sort: 'score', q: '' }, store.get('ssd.discFilter', {}));
+const disc = Object.assign({ min: '50', sector: '', sort: 'score', q: '' }, store.get('ssd.discFilter', {}));
+if (!['50', '44', '32', '0'].includes(disc.min)) disc.min = '50';   // 이전 점수 체계에서 저장된 필터 값
+const TOP = Signal.LEVELS[0][0];                                       // '강력 매수' 기준 점수
 
 // 스캔 대상 목록: 서버 모드는 서버에 저장된 목록, 로컬 모드는 브라우저에 저장된 목록, 둘 다 없으면 앱 내장 목록
 let uniInfo = null;                                   // { source: 'saved' | 'builtin', at, count }
@@ -981,6 +1080,7 @@ async function loadScan() {
   } else {
     scanData = store.get('ssd.scan', null);
   }
+  if (scanData && scanData.v !== Signal.SIGNAL_VERSION) scanData = null;   // 이전 점수 체계의 결과는 다시 스캔
   scanLoaded = true;
   renderDiscover();
 }
@@ -1050,11 +1150,11 @@ function renderDiscover() {
     <thead><tr><th>종목</th><th class="r">점수</th><th>신호</th><th class="r">종가</th><th class="r hide-sm">RSI</th><th class="hide-md">주요 근거</th><th></th></tr></thead>
     <tbody>${rows.map(r => {
       const d = delta(r), h = owned.get(r.s);
-      const isNew = r.prev != null && r.prev < 40 && r.score >= 40;
+      const isNew = r.prev != null && r.prev < TOP && r.score >= TOP;
       const action = h ? `<span class="count">${h.watch ? '관심 중' : '보유 중'}</span>` : `<button class="btn ghost" data-watch="${esc(r.s)}">+ 관심</button>`;
       return `<tr class="main" data-sym="${esc(r.s)}">
         <td><div class="sym">${esc(r.s)}${isNew ? '<span class="new">신규</span>' : ''}</div><div class="sym-name">${esc(r.n)}</div><div class="sec">${secKo(r.sec)}</div></td>
-        <td class="r num"><b>${sign(r.score)}</b>${d ? `<span class="delta ${cls(d)}">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</span>` : ''}</td>
+        <td class="r num"><b>${r.score}</b><span class="gs">${r.grade || ''}등급</span>${d ?`<span class="delta ${cls(d)}">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</span>` : ''}</td>
         <td><span class="badge ${r.key}">${icon(r.key)} ${r.label}</span></td>
         <td class="r num">${usd(r.price)}<div class="${cls(r.chgPct)}" style="font-size:12px">${pct(r.chgPct)}</div></td>
         <td class="r num hide-sm">${r.rsi ?? '–'}</td>
