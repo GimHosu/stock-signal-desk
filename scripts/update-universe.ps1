@@ -15,14 +15,15 @@ foreach ($tr in [regex]::Matches($table, '<tr[\s\S]*?</tr>')) {
   $cells = [regex]::Matches($tr.Value, '<td[^>]*>([\s\S]*?)</td>') | ForEach-Object { & $clean $_.Groups[1].Value }
   if ($cells.Count -lt 3) { continue }
   $sym = $cells[0] -replace '\.', '-'          # Yahoo 표기: BRK.B → BRK-B
-  $rows += ,@($sym, $cells[1], $cells[2])
+  $cik = if ($cells.Count -gt 6 -and $cells[6] -match '^\d+$') { [int64]$cells[6] } else { 0 }   # SEC 재무 데이터 조회용
+  $rows += ,@($sym, $cells[1], $cells[2], $cik)
 }
 if ($rows.Count -lt 480) { throw "종목 수가 너무 적습니다 ($($rows.Count)). 표 구조가 바뀌었을 수 있습니다." }
 
-$lines = $rows | ForEach-Object { '    ' + (ConvertTo-Json -Compress -InputObject @($_[0], $_[1], $_[2])) + ',' }
+$lines = $rows | ForEach-Object { '    ' + (ConvertTo-Json -Compress -InputObject @($_[0], $_[1], $_[2], $_[3])) + ',' }
 $today = Get-Date -Format 'yyyy-MM-dd'
 $js = @"
-// S&P 500 구성 종목 [티커, 회사명, GICS 섹터] — scripts/update-universe.ps1 로 생성 ($today, 위키백과 기준)
+// S&P 500 구성 종목 [티커, 회사명, GICS 섹터, SEC CIK] — scripts/update-universe.ps1 로 생성 ($today, 위키백과 기준)
 (function (root) {
   const UNIVERSE = [
 $($lines -join "`n")

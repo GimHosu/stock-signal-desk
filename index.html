@@ -216,6 +216,7 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
 .div-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
 .div-text { font-size: 12px; color: var(--text-2); margin-top: 4px; }
 .metrics.plan .v { font-size: 17px; font-weight: 600; }
+.metrics.fund { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .conds { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
 .cond { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; background: var(--surface-2); }
 .cond.ok { border-color: var(--good); } .cond.na { opacity: .6; }
@@ -451,6 +452,7 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
 <script src="/lib/signal.js"></script>
 <script src="/lib/universe.js"></script>
 <script src="/lib/scan.js"></script>
+<script src="/lib/fundamentals.js"></script>
 <script>
 // ────────────────────────── 저장소 ──────────────────────────
 const store = {
@@ -519,6 +521,7 @@ function askPassword() {
 // ────────────────────────── 포맷 ──────────────────────────
 const usd = (v, d = 2) => v == null || isNaN(v) ? '–' : v.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: d, maximumFractionDigits: d });
 const pct = (v, d = 2) => v == null || isNaN(v) ? '–' : (v > 0 ? '+' : '') + v.toFixed(d) + '%';
+const bigUsd = (v) => v == null || isNaN(v) ? '–' : (v < 0 ? '−' : '') + '$' + (Math.abs(v) >= 1e9 ? (Math.abs(v) / 1e9).toFixed(2) + 'B' : (Math.abs(v) / 1e6).toFixed(0) + 'M');
 const signed = (v) => v == null || isNaN(v) ? '–' : (v > 0 ? '+' : v < 0 ? '−' : '') + usd(Math.abs(v));
 const cls = (v) => v > 0 ? 'up' : v < 0 ? 'down' : '';
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -531,7 +534,25 @@ async function fetchSeries(symbol) {
   if (!res.ok) throw new Error(j.error || `오류 ${res.status}`);
   return Signal.parseChart(j, symbol);
 }
-const analyze = (d, h) => Signal.analyze(d, h, settings);
+// 재무 정보: 분기마다 바뀌므로 브라우저에 7일간 보관 (실패는 1시간 뒤 다시 시도)
+const fund = store.get('ssd.fund', {});   // symbol → { at, data }
+async function ensureFund(sym) {
+  const c = fund[sym];
+  if (c && Date.now() - c.at < (c.data.failed ? 36e5 : 7 * 864e5)) return;
+  let data;
+  try {
+    const res = await fetch(`/api/fundamentals?symbol=${encodeURIComponent(sym)}`);
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || `오류 ${res.status}`);
+    // 로컬 개발 서버는 SEC 원본(raw)을 넘기므로 여기서 계산한다
+    data = j.raw ? (() => { try { return Fundamentals.extract(j.raw); } catch (e) { return { unavailable: true, reason: e.message }; } })() : j;
+  } catch (e) {
+    data = { unavailable: true, failed: true, reason: `재무 정보를 불러오지 못했습니다 (${e.message})` };
+  }
+  fund[sym] = { at: Date.now(), data };
+  store.set('ssd.fund', fund);
+}
+const analyze = (d, h) => Signal.analyze(d, h, settings, fund[h.symbol] && fund[h.symbol].data);
 
 const icon = (key) => key === 'buy' ? '▲' : key === 'sell' ? '▼' : '●';
 
@@ -596,6 +617,9 @@ async function refreshAll(silent = false) {
     }
   };
   await Promise.all([worker(), worker(), worker(), worker()]);
+  let f = 0;   // 재무 정보 (7일 캐시가 있으면 요청하지 않음)
+  const fworker = async () => { while (f < syms.length) await ensureFund(syms[f++]); };
+  await Promise.all([fworker(), fworker(), fworker()]);
   reanalyze();
   recordHistory();
   lastRefresh = Date.now();
@@ -718,7 +742,7 @@ function renderDetail() {
       <div class="metric"><div class="k">손익비</div><div class="v num">1 : ${p.rr.toFixed(1)}</div><div class="k">${p.rr >= 2 ? '우수' : p.rr >= 1.5 ? '보통' : '낮음'}</div></div>
     </div>
 
-    <div class="section-title">5대 핵심 조건 <span class="count">${a.condMet} / ${a.condTotal} 충족 · 재무 제외</span></div>
+    <div class="section-title">5대 핵심 조건 <span class="count">${a.condMet} / ${a.condTotal} 충족${a.condTotal < 5 ? ' · 재무 제외' : ''}</span></div>
     <div class="conds">${a.conditions.map((c, i) => `<div class="cond ${c.ok === true ? 'ok' : c.ok === false ? 'no' : 'na'}">
       <div class="ch"><span>${i + 1}. ${c.name}</span><i>${c.ok === true ? '✓' : c.ok === false ? '✕' : '–'}</i></div>
       <div class="cv">${esc(c.value)}</div><div class="k">${esc(c.sub)}</div></div>`).join('')}</div>
@@ -728,6 +752,16 @@ function renderDetail() {
       <div class="mh"><b>${i + 1}. ${m.name} <i>${m.en}</i></b><span class="pill num">${m.score} / 25</span></div>
       <ul>${m.items.map(it => `<li class="${it.pts ? 'hit' : ''}"><span>${it.label} <i>[${it.max}]</i></span><span class="num">${esc(it.value)}${it.pts ? ` <b>+${it.pts}</b>` : ''}</span></li>`).join('')}</ul>
     </div>`).join('')}</div>
+
+    <div class="section-title">펀더멘털 & 밸류에이션 <span class="count">${a.fin.available ? `SEC 공시 · ${a.fin.basis === 'TTM' ? `${a.fin.asOf}까지 최근 4분기` : `${a.fin.asOf} 회계연도`}` : '재무 정보 없음'}</span></div>
+    ${a.fin.available ? `<div class="metrics fund">
+      <div class="metric"><div class="k">순이익</div><div class="v num ${cls(a.fin.netIncome)}">${bigUsd(a.fin.netIncome)}</div></div>
+      <div class="metric"><div class="k">매출</div><div class="v num">${bigUsd(a.fin.revenue)}</div><div class="k">${a.fin.revGrowth != null ? `연간 성장 ${pct(a.fin.revGrowth, 1)}` : ''}</div></div>
+      <div class="metric"><div class="k">영업이익률</div><div class="v num">${a.fin.opMargin != null ? a.fin.opMargin.toFixed(1) + '%' : '–'}</div></div>
+      <div class="metric"><div class="k">EPS (희석)</div><div class="v num">${a.fin.eps != null ? '$' + a.fin.eps.toFixed(2) : '–'}</div></div>
+      <div class="metric"><div class="k">PER</div><div class="v num">${a.fin.per != null ? a.fin.per.toFixed(1) + '배' : '–'}</div></div>
+      <div class="metric"><div class="k">배당수익률</div><div class="v num">${a.fin.divYield > 0 ? a.fin.divYield.toFixed(2) + '%' : '무배당'}</div></div>
+    </div>` : `<div class="div-card"><div class="div-text">${esc(a.fin.reason || '재무 정보를 불러오는 중입니다.')}${a.fin.divYield > 0 ? ` · 배당수익률 ${a.fin.divYield.toFixed(2)}%` : ''}</div></div>`}
 
     <div class="section-title">기술적 지표 & MDD 차트 <span class="count">최근 6개월</span></div>
     <div class="ctabs">${CHART_TABS.map(([k, l]) => `<button type="button" data-ct="${k}" class="${k === chartTab ? 'on' : ''}">${l}</button>`).join('')}</div>
@@ -740,6 +774,7 @@ function renderDetail() {
         <div class="rp"><h4>MDD 낙폭 & 반등 분석</h4><p>${esc(rp.mdd)}</p></div>
         <div class="rp"><h4>기술적 지표 & 다이버전스</h4><p>${esc(rp.tech)}</p></div>
       </div>
+      <div class="rp"><h4>펀더멘털 건전성 & 밸류에이션</h4><p>${esc(rp.fund)}</p></div>
       <div class="rp"><h4>매매 시나리오</h4><p>${esc(rp.plan)}</p></div>
       <div class="rp risk"><h4>⚠ 유의할 위험 요인</h4><ul>${rp.risks.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
     </div>
@@ -914,6 +949,7 @@ document.getElementById('formHolding').addEventListener('submit', async (e) => {
     data[sym] = await fetchSeries(sym);
     holdings.push({ symbol: sym, ...entry }); saveHoldings();
     selected = sym; dlg.close(); reanalyze(); recordHistory(); render();
+    ensureFund(sym).then(() => { reanalyze(); render(); });
   } catch (ex) { err.textContent = ex.message; }
   finally { save.disabled = false; save.textContent = '저장'; }
 });
@@ -1169,6 +1205,7 @@ async function addWatch(sym) {
   holdings.push({ symbol: sym, watch: true, shares: 0, avgCost: 0 });
   saveHoldings(); renderDiscover(); render();
   try { data[sym] = await fetchSeries(sym); delete errors[sym]; } catch (e) { errors[sym] = e.message; }
+  await ensureFund(sym);
   reanalyze(); recordHistory(); render();
 }
 

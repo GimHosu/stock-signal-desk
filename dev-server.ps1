@@ -26,7 +26,7 @@ while ($listener.IsListening) {
       if ($sym -notmatch '^[A-Z0-9.\-^=]{1,15}$') {
         Send $res 400 'application/json' '{"error":"종목 코드 형식이 올바르지 않습니다."}'
       } else {
-        $u = "https://query1.finance.yahoo.com/v8/finance/chart/$([uri]::EscapeDataString($sym))?range=2y&interval=1d&includePrePost=false"
+        $u = "https://query1.finance.yahoo.com/v8/finance/chart/$([uri]::EscapeDataString($sym))?range=2y&interval=1d&includePrePost=false&events=div"
         try {
           $r = Invoke-WebRequest -UseBasicParsing -Uri $u -UserAgent 'Mozilla/5.0'
           Send $res 200 'application/json; charset=utf-8' $r.Content
@@ -35,6 +35,24 @@ while ($listener.IsListening) {
           if ($_.Exception.Response) { $code = [int]$_.Exception.Response.StatusCode }
           if ($code -eq 404) { Send $res 404 'application/json' "{`"error`":`"'$sym' 종목을 찾을 수 없습니다.`"}" }
           else { Send $res 502 'application/json' "{`"error`":`"시세 서버 오류 ($code)`"}" }
+        }
+      }
+    } elseif ($path -eq '/api/fundamentals') {
+      # 로컬에서는 Node 가 없어 재무 지표 계산을 브라우저에 맡긴다: SEC 원본을 {"raw": ...} 로 넘기면
+      # 화면이 lib/fundamentals.js 로 계산한다 (배포 환경의 api/fundamentals.js 는 계산된 결과를 돌려줌).
+      $sym = ([string]$req.QueryString['symbol']).Trim().ToUpper()
+      $uni = [IO.File]::ReadAllText((Join-Path $root 'lib\universe.js'), [Text.Encoding]::UTF8)
+      $m = [regex]::Match($uni, '(?m)^\s*\["' + [regex]::Escape($sym) + '",.*,(\d+)\],?\s*$')
+      if (-not $m.Success -or $m.Groups[1].Value -eq '0') {
+        Send $res 200 'application/json' '{"unavailable":true,"reason":"로컬 서버는 S&P 500 종목만 재무 데이터를 조회합니다."}'
+      } else {
+        $cik = $m.Groups[1].Value.PadLeft(10, '0')
+        try {
+          $r = Invoke-WebRequest -UseBasicParsing -Uri "https://data.sec.gov/api/xbrl/companyfacts/CIK$cik.json" -UserAgent 'StockSignalDesk/1.0 personal-use'
+          $text = [Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray())
+          Send $res 200 'application/json; charset=utf-8' ('{"raw":' + $text + '}')
+        } catch {
+          Send $res 502 'application/json' '{"error":"SEC 재무 데이터를 받지 못했습니다."}'
         }
       }
     } else {
