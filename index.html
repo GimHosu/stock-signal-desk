@@ -264,6 +264,28 @@ ul.news .k { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .news-foot .btn.ghost { padding: 3px 8px; font-size: 12px; color: var(--accent); }
 ul.news .orig { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
+/* 증시 일정 */
+.week-card { padding: 12px 16px; margin-bottom: 16px; }
+.week-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.week-head h2 { font-size: 14px; margin: 0; }
+.week-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 14px; }
+.ev { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 5px 0; }
+.ev .ico { width: 20px; text-align: center; flex: none; }
+.ev .when { flex: none; min-width: 74px; font-size: 12px; color: var(--text-2); font-family: "IBM Plex Mono", ui-monospace, monospace; }
+.ev .what { min-width: 0; }
+.ev .what b { font-weight: 600; }
+.ev .what .k { font-size: 11px; color: var(--muted); }
+.ev.high .what b { color: var(--text); }
+.ev .imp { font-size: 10px; font-weight: 700; color: var(--bad); border: 1px solid var(--bad); border-radius: 4px; padding: 0 4px; margin-left: 4px; vertical-align: 1px; }
+.ev .mine { font-size: 10px; font-weight: 700; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 4px; margin-left: 4px; vertical-align: 1px; }
+.cal-day { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.cal-day h3 { font-size: 13px; margin: 0 0 4px; display: flex; gap: 8px; align-items: baseline; }
+.cal-day h3 .dd { font-size: 11px; color: var(--muted); font-weight: 500; }
+.cal-day.today h3 { color: var(--accent); }
+.cal-day .ev .when { min-width: 90px; }
+.fchip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: var(--muted); }
+.fchip.on { color: var(--text); border-color: var(--accent); background: var(--surface-2); }
+
 /* 섹터 · 순환매 */
 .sec-body { padding: 14px 16px 16px; }
 .sec-summary { font-size: 13px; line-height: 1.7; background: var(--surface-2); border-radius: 10px; padding: 12px 14px; }
@@ -378,10 +400,12 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
     <button type="button" data-view="mine" class="on">내 종목</button>
     <button type="button" data-view="discover">종목 발굴</button>
     <button type="button" data-view="sector">섹터 · 순환매</button>
+    <button type="button" data-view="cal">증시 일정</button>
   </nav>
 
   <div id="viewMine">
   <section class="tiles" id="tiles"></section>
+  <section class="card week-card" id="weekCard" hidden></section>
 
   <section class="layout">
     <div class="stack">
@@ -397,6 +421,19 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
     <div class="card" id="detailCard"><div class="empty">종목을 선택하면 상세 분석이 표시됩니다.</div></div>
   </section>
   </div>
+
+  <section id="viewCal" hidden>
+    <div class="card">
+      <div class="panel-head">
+        <div><h2>증시 주요 일정<button type="button" class="qm" data-gloss="calendar" title="용어 설명" aria-label="용어 설명">?</button></h2><div class="count" id="calMeta">앞으로 30일 · 시각은 모두 한국 시간</div></div>
+        <button class="btn" id="btnCalRefresh">새로고침</button>
+      </div>
+      <div class="filters">
+        <div class="filter-row" id="calFilters"></div>
+      </div>
+      <div id="calList"></div>
+    </div>
+  </section>
 
   <section id="viewSector" hidden>
     <div class="card">
@@ -553,6 +590,7 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
 <script src="/lib/events.js"></script>
 <script src="/lib/glossary.js"></script>
 <script src="/lib/sectors.js"></script>
+<script src="/lib/calendar.js"></script>
 <script>
 // ────────────────────────── 저장소 ──────────────────────────
 const store = {
@@ -785,7 +823,7 @@ function reanalyze() {
 }
 
 // ────────────────────────── 렌더링 ──────────────────────────
-function render() { renderMarket(); renderTiles(); renderList(); renderDetail(); }
+function render() { renderMarket(); renderTiles(); renderWeek(); renderList(); renderDetail(); }
 
 // ────────────────────────── 환율 (USD/KRW) ──────────────────────────
 let fx = null;   // { rate, chg, chgPct, time }
@@ -1462,8 +1500,10 @@ function setView(v) {
   document.getElementById('viewMine').hidden = v !== 'mine';
   document.getElementById('viewDiscover').hidden = v !== 'discover';
   document.getElementById('viewSector').hidden = v !== 'sector';
+  document.getElementById('viewCal').hidden = v !== 'cal';
   if (v === 'discover') { if (!scanLoaded) loadScan(); else renderDiscover(); }
   else if (v === 'sector') { loadSectors(); if (!scanLoaded) loadScan(); }
+  else if (v === 'cal') loadCalendar();
   else renderDetail(); // 숨겨져 있던 동안 폭이 0이었던 차트를 다시 그림
 }
 
@@ -1589,6 +1629,97 @@ function drawRRG() {
 }
 
 document.getElementById('btnSecRefresh').onclick = () => loadSectors(true);
+
+// ────────────────────────── 증시 일정 ──────────────────────────
+// 휴장·만기·FOMC 는 lib/calendar.js 가 계산, 경제지표·대형주 실적은 서버(/api/calendar), 내 종목 실적은 실적·뉴스 데이터에서
+let calData = store.get('ssd.cal', null), calLoading = false;
+const calFilter = Object.assign({ econ: true, fomc: true, myearn: true, earn: true, market: true, highOnly: false }, store.get('ssd.calFilter', {}));
+const CAL_TYPES = [['econ', '📊 경제지표'], ['fomc', '🏦 FOMC'], ['myearn', '💼 내 종목 실적'], ['earn', '🏢 대형주 실적'], ['market', '🗓 휴장·만기']];
+const etToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+const addDays = (iso, n) => { const t = new Date(iso + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+
+async function loadCalendar(force = false) {
+  if (calLoading) return;
+  if (!force && calData && Date.now() - calData.fetchedAt < 36e5) { renderCalendar(); renderWeek(); return; }
+  calLoading = true;
+  try {
+    const res = await fetch('/api/calendar', { headers: { 'x-app-password': cloud.pw } });
+    let j = res.status === 404 ? { economic: [], earnings: [], localOnly: true } : await res.json();
+    if (!res.ok && res.status !== 404) throw new Error(j.error || `오류 ${res.status}`);
+    if (j.rawEconomic) j = { ...j, economic: Cal.parseEconomic(j.rawEconomic) };   // 로컬 개발 서버
+    calData = { fetchedAt: Date.now(), economic: j.economic || [], earnings: j.earnings || [], localOnly: !!j.localOnly };
+    delete calData.rawEconomic;
+    store.set('ssd.cal', calData);
+  } catch (e) {
+    calData = calData || { fetchedAt: 0, economic: [], earnings: [], error: e.message };
+  }
+  calLoading = false;
+  renderCalendar(); renderWeek();
+}
+
+// 모든 일정 (앞으로 days 일)
+function calendarEvents(days = 30) {
+  const from = etToday(), to = addDays(from, days);
+  const mine = holdings.map(h => { const n = events[h.symbol] && events[h.symbol].data && events[h.symbol].data.earnings && events[h.symbol].data.earnings.next; return n && { date: n.date, type: 'myearn', impact: 'High', symbol: h.symbol, title: `${h.symbol} 실적 발표`, hour: n.hour, epsEstimate: n.epsEstimate }; }).filter(Boolean);
+  const mineSet = new Set(mine.map(x => x.symbol));
+  const mega = ((calData && calData.earnings) || []).filter(x => !mineSet.has(x.symbol));
+  return Cal.build({ from, to, economic: (calData && calData.economic) || [], earnings: [...mine, ...mega] });
+}
+const calGroup = (e) => e.type === 'holiday' || e.type === 'early' || e.type === 'opex' ? 'market' : e.type;
+const CAL_ICON = { econ: '📊', fomc: '🏦', myearn: '💼', earn: '🏢', holiday: '⛔', early: '⏰', opex: '🎯' };
+const HOUR_KO = { bmo: '장 전', amc: '장 후', dmh: '장중' };
+const kstFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+// 시각이 있는 일정은 한국 시간 "월/일 시:분", 없는 일정은 (미국 날짜) + 장 전/후·종일
+function evWhen(e, showDate) {
+  const md = (iso) => { const [, m, d] = iso.split('-'); return `${+m}/${+d}`; };
+  if (e.at) { const p = Object.fromEntries(kstFmt.formatToParts(new Date(e.at)).map(x => [x.type, x.value])); return `${p.month}/${p.day} ${p.hour}:${p.minute}`; }
+  const label = e.type === 'myearn' || e.type === 'earn' ? (HOUR_KO[e.hour] || '시간 미정') : '종일';
+  return showDate ? `${md(e.date)} ${label}` : label;
+}
+function evRow(e, showDate) {
+  const high = e.impact === 'High';
+  const sub = e.type === 'econ' ? [e.forecast && `예상 ${e.forecast}`, e.previous && `이전 ${e.previous}`].filter(Boolean).join(' · ')
+    : (e.type === 'myearn' || e.type === 'earn') ? (e.epsEstimate != null ? `예상 EPS $${(+e.epsEstimate).toFixed(2)}` : '')
+    : (e.detail || '');
+  return `<div class="ev ${high ? 'high' : ''}"><span class="ico">${CAL_ICON[e.type] || '•'}</span>
+    <span class="when">${evWhen(e, showDate)}</span>
+    <span class="what"><b>${esc(e.title)}</b>${e.type === 'myearn' ? '<span class="mine">내 종목</span>' : high && e.type === 'econ' ? '<span class="imp">중요</span>' : ''}${sub ? `<div class="k">${esc(sub)}</div>` : ''}</span></div>`;
+}
+
+// '내 종목' 화면의 이번 주 요약 카드: 7일 안의 중요한 일정만
+function renderWeek() {
+  const card = document.getElementById('weekCard');
+  const list = calendarEvents(7).filter(e => e.impact === 'High' || e.type === 'fomc' || e.type === 'myearn' || e.type === 'early').slice(0, 8);
+  if (!list.length) { card.hidden = true; return; }
+  card.hidden = false;
+  card.innerHTML = `<div class="week-head"><h2>이번 주 주요 일정 <span class="count">한국 시간</span></h2><button class="btn ghost" id="btnWeekAll">전체 일정 보기 →</button></div>
+    <div class="week-list">${list.map(e => evRow(e, true)).join('')}</div>`;
+  document.getElementById('btnWeekAll').onclick = () => setView('cal');
+}
+
+function renderCalendar() {
+  document.getElementById('calFilters').innerHTML = CAL_TYPES.map(([k, l]) => `<button type="button" class="fchip ${calFilter[k] ? 'on' : ''}" data-cf="${k}">${l}</button>`).join('')
+    + `<button type="button" class="fchip ${calFilter.highOnly ? 'on' : ''}" data-cf="highOnly">중요 일정만</button>`;
+  const notes = [];
+  if (calData && calData.localOnly) notes.push('경제지표·대형주 실적은 서버 배포 환경에서만 표시됩니다.');
+  if (calData && calData.error) notes.push(`일부 일정을 불러오지 못했습니다 (${esc(calData.error)}).`);
+  notes.push('경제지표는 이번 주 일정만 제공됩니다(매주 갱신). FOMC 일정은 연준 발표 기준 2026년까지 들어 있습니다.');
+  document.getElementById('calMeta').textContent = '앞으로 30일 · 시각은 모두 한국 시간 · ' + notes.join(' ');
+  const evs = calendarEvents(30).filter(e => calFilter[calGroup(e)] && (!calFilter.highOnly || e.impact === 'High' || e.type === 'myearn'));
+  const today = etToday(), byDay = new Map();
+  for (const e of evs) { if (!byDay.has(e.date)) byDay.set(e.date, []); byDay.get(e.date).push(e); }
+  const wk = ['일', '월', '화', '수', '목', '금', '토'];
+  document.getElementById('calList').innerHTML = byDay.size ? [...byDay].map(([date, list]) => {
+    const [y, m, d] = date.split('-').map(Number), w = wk[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+    const diff = Math.round((Date.parse(date) - Date.parse(today)) / 864e5);
+    return `<div class="cal-day ${diff === 0 ? 'today' : ''}"><h3>${m}/${d} (${w}) <span class="dd">${diff === 0 ? '오늘 (미국 날짜 기준)' : diff === 1 ? '내일' : `D-${diff}`}</span></h3>${list.map(e => evRow(e, false)).join('')}</div>`;
+  }).join('') : '<div class="empty">선택한 조건의 일정이 없습니다.</div>';
+}
+document.getElementById('calFilters').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-cf]'); if (!b) return;
+  calFilter[b.dataset.cf] = !calFilter[b.dataset.cf]; store.set('ssd.calFilter', calFilter); renderCalendar();
+});
+document.getElementById('btnCalRefresh').onclick = () => loadCalendar(true);
 document.getElementById('secTable').addEventListener('click', (e) => {
   const tr = e.target.closest('tr[data-sec]'); if (!tr) return;
   disc.sector = tr.dataset.sec; disc.min = '0'; store.set('ssd.discFilter', disc);   // 해당 섹터 전체 종목을 점수순으로
@@ -1652,6 +1783,7 @@ setInterval(autoRefresh, 15 * 1000);
   setView(view);
   if (holdings.length) refreshAll(); else loadFx();   // 보유 종목이 없어도 환율은 표시
   loadSectors(false, true);   // 종목 상세의 '소속 섹터' 표시용 (30분 캐시)
+  loadCalendar();             // '이번 주 주요 일정' 카드 (1시간 캐시)
 })();
 </script>
 </body>

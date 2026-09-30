@@ -3,7 +3,7 @@
 //  - POST {action:'test'} (x-app-password) → 테스트 메시지 / TELEGRAM_CHAT_ID 찾기
 //  - POST {action:'run'}  (x-app-password) → 지금 점검하고 결과를 항상 발송
 //  - GET  (x-app-password) → 마지막 자동/수동 점검 기록
-const { missingConfig, getJSON, setJSON, checkPassword, fetchSeries, fetchEvents, telegram, findChats } = require('../lib/server.js');
+const { missingConfig, getJSON, setJSON, checkPassword, fetchSeries, fetchEvents, fetchCalendar, telegram, findChats } = require('../lib/server.js');
 const { runCheck } = require('../lib/alerts.js');
 
 module.exports = async (req, res) => {
@@ -33,7 +33,7 @@ module.exports = async (req, res) => {
     if (action === 'daily' || action === 'run') {
       const missing = missingConfig();
       if (missing.length) throw new Error(`설정 누락: ${missing.join(', ')}`);
-      const result = await runCheck({ getJSON, setJSON, fetchSeries, fetchEvents: process.env.FINNHUB_API_KEY ? fetchEvents : null, send: telegram, appUrl }, { manual: action === 'run' });
+      const result = await runCheck({ getJSON, setJSON, fetchSeries, fetchEvents: process.env.FINNHUB_API_KEY ? fetchEvents : null, fetchCalendar, send: telegram, appUrl }, { manual: action === 'run' });
       return res.status(200).json({ ok: true, ...result });
     }
     return res.status(400).json({ ok: false, error: '알 수 없는 요청입니다.' });

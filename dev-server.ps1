@@ -37,6 +37,15 @@ while ($listener.IsListening) {
           else { Send $res 502 'application/json' "{`"error`":`"시세 서버 오류 ($code)`"}" }
         }
       }
+    } elseif ($path -eq '/api/calendar') {
+      # 로컬: 경제 캘린더 원본을 넘기면 화면이 lib/calendar.js 로 변환한다 (대형주 실적은 Finnhub 키가 필요해 생략)
+      try {
+        $r = Invoke-WebRequest -UseBasicParsing -Uri 'https://nfs.faireconomy.media/ff_calendar_thisweek.json' -UserAgent 'Mozilla/5.0'
+        $text = [Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray())
+        Send $res 200 'application/json; charset=utf-8' ('{"at":0,"rawEconomic":' + $text + ',"earnings":[]}')
+      } catch {
+        Send $res 200 'application/json' '{"at":0,"economic":[],"earnings":[]}'
+      }
     } elseif ($path -eq '/api/fundamentals') {
       # 로컬에서는 Node 가 없어 재무 지표 계산을 브라우저에 맡긴다: SEC 원본을 {"raw": ...} 로 넘기면
       # 화면이 lib/fundamentals.js 로 계산한다 (배포 환경의 api/fundamentals.js 는 계산된 결과를 돌려줌).
