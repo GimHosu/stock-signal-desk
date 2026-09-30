@@ -818,6 +818,7 @@ function eventsSection(a) {
   const n = ev.next, l = ev.last, nw = ev.news;
   const ago = (t) => { const m = Math.round((Date.now() - t * 1000) / 6e4); return m < 60 ? `${m}분 전` : m < 1440 ? `${Math.round(m / 60)}시간 전` : `${Math.round(m / 1440)}일 전`; };
   const safeUrl = (u) => /^https?:\/\//i.test(u || '') ? u : '#';
+  const shown = nw.items.filter(x => x.tone !== 'neu');   // 화면이 길어지지 않도록 긍정·부정 뉴스만 표시
   return `<div class="metrics">
       <div class="metric"><div class="k">다음 실적 발표</div><div class="v num">${n ? `${mdShort(n.date)} <span class="${n.daysTo <= 7 ? 'down' : ''}">${ddayText(n.daysTo)}</span>` : '미정'}</div><div class="k">${n ? `${n.hourText}${n.year ? ` · ${n.year} Q${n.quarter}` : ''}` : ''}</div></div>
       <div class="metric"><div class="k">예상 EPS</div><div class="v num">${n && n.epsEstimate != null ? '$' + n.epsEstimate.toFixed(2) : '–'}</div></div>
@@ -825,12 +826,13 @@ function eventsSection(a) {
       <div class="metric"><div class="k">발표 후 주가 반응</div><div class="v num ${cls(l && l.reaction)}">${l && l.reaction != null ? pct(l.reaction, 1) : '–'}</div></div>
     </div>
     <div class="news-head">최근 7일 뉴스 ${nw.total}건 · <span class="badge ${nw.label === '긍정' ? 'buy' : nw.label === '부정' ? 'sell' : 'hold'}">심리 ${nw.label}</span> <span class="count">긍정 ${nw.pos} · 부정 ${nw.neg} · 중립 ${nw.neu}</span></div>
-    ${nw.total ? `<ul class="news">${nw.items.map(x => `<li class="${x.tone}">
-      <i>${x.tone === 'pos' ? '▲' : x.tone === 'neg' ? '▼' : '●'}</i>
+    ${shown.length ? `<ul class="news">${shown.map(x => `<li class="${x.tone}">
+      <i>${x.tone === 'pos' ? '▲' : '▼'}</i>
       <div><a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener noreferrer">${esc(x.ko || x.headline)}</a>
       ${x.ko ? `<div class="orig">${esc(x.headline)}</div>` : ''}
       <div class="k">${esc(x.source || '')} · ${ago(x.t)}${x.tags.length ? ` · ${x.tags.map(esc).join(', ')}` : ''}</div></div></li>`).join('')}</ul>
-    ${nw.items.some(x => x.ko) ? '<div class="count" style="margin-top:4px">한국어는 자동 번역입니다. 뉘앙스가 틀릴 수 있으니 원문(회색)도 함께 확인하세요.</div>' : ''}` : '<div class="count" style="margin-top:6px">최근 7일간 관련 뉴스가 없습니다.</div>'}`;
+    <div class="count" style="margin-top:4px">${nw.neu ? `중립 뉴스 ${nw.neu}건은 숨겼습니다. ` : ''}${shown.some(x => x.ko) ? '한국어는 자동 번역이니 원문(회색)도 함께 확인하세요.' : ''}</div>`
+    : `<div class="count" style="margin-top:6px">${nw.total ? `최근 7일 뉴스 ${nw.total}건이 모두 중립이라 표시하지 않았습니다.` : '최근 7일간 관련 뉴스가 없습니다.'}</div>`}`;
 }
 
 let chartTab = store.get('ssd.chartTab', 'price');
