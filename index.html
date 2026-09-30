@@ -602,9 +602,40 @@ async function ensureFund(sym) {
 }
 // 실적 일정 & 뉴스 (서버의 Finnhub 연동): 1시간 보관
 const events = store.get('ssd.events', {});   // symbol → { at, data }
+// 헤드라인 번역: 서버 번역(DeepL/Google)이 비어 있으면 브라우저가 직접 Google 번역을 호출한다.
+// (Google 무료 경로는 Vercel 같은 데이터센터 IP를 자주 막지만, 사용자 브라우저에서는 대부분 동작)
+const trCache = store.get('ssd.tr', {});   // 영어 헤드라인 → 한국어
+async function gtxKo(text) {
+  const r = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=${encodeURIComponent(text)}`);
+  if (!r.ok) throw new Error(String(r.status));
+  return (await r.json())[0].map(s => s[0]).join('');
+}
+async function translateMissing(data) {
+  const items = data && data.news && data.news.items;
+  if (!items) return false;
+  for (const x of items) if (!x.ko && trCache[x.headline]) x.ko = trCache[x.headline];
+  const todo = items.filter(x => !x.ko);
+  if (!todo.length || (data.trAt && Date.now() - data.trAt < 10 * 6e4)) return false;   // 실패 시 10분 뒤 재시도
+  data.trAt = Date.now();
+  let ko = null;
+  try {   // 한 번에 보내고 줄바꿈으로 다시 나눈다
+    const lines = (await gtxKo(todo.map(x => x.headline).join('\n'))).split('\n').map(s => s.trim());
+    if (lines.length === todo.length) ko = lines;
+  } catch {}
+  if (!ko) ko = await Promise.all(todo.map(x => gtxKo(x.headline).then(s => s.trim()).catch(() => null)));
+  todo.forEach((x, i) => { if (ko[i]) { x.ko = ko[i]; trCache[x.headline] = ko[i]; } });
+  const keys = Object.keys(trCache);   // 오래된 번역부터 정리 (최대 400개)
+  if (keys.length > 400) keys.slice(0, keys.length - 400).forEach(k => delete trCache[k]);
+  store.set('ssd.tr', trCache);
+  return true;
+}
+
 async function ensureEvents(sym) {
   const c = events[sym];
-  if (c && Date.now() - c.at < 36e5) return;
+  if (c && Date.now() - c.at < 36e5) {   // 캐시가 있어도 번역이 빠진 헤드라인은 채운다
+    if (await translateMissing(c.data)) store.set('ssd.events', events);
+    return;
+  }
   let data;
   try {
     const res = await fetch(`/api/events?symbol=${encodeURIComponent(sym)}`, { headers: { 'x-app-password': cloud.pw } });
@@ -617,6 +648,7 @@ async function ensureEvents(sym) {
   } catch (e) {
     data = { unavailable: true, reason: `실적·뉴스를 불러오지 못했습니다 (${e.message})` };
   }
+  await translateMissing(data);
   events[sym] = { at: Date.now(), data };
   store.set('ssd.events', events);
 }
