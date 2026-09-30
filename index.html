@@ -247,6 +247,16 @@ dialog h3 { margin: 0 0 4px; font-size: 16px; }
 .rp.risk h4 { color: var(--bad); }
 .rp.risk ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; }
 .gs { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.gs.warn { color: var(--warn); font-weight: 600; }
+.tag.warn { color: var(--warn); border-color: var(--warn); }
+.news-head { font-size: 13px; margin: 10px 0 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+ul.news { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+ul.news li { display: flex; gap: 8px; align-items: flex-start; padding: 7px 10px; border-radius: 8px; background: var(--surface-2); font-size: 13px; }
+ul.news li > i { font-style: normal; font-size: 11px; margin-top: 2px; color: var(--muted); }
+ul.news li.pos > i { color: var(--good); } ul.news li.neg > i { color: var(--bad); }
+ul.news a { color: var(--text); text-decoration: none; }
+ul.news a:hover { text-decoration: underline; }
+ul.news .k { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
 .check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; margin-bottom: 8px; }
 .check input { width: 16px; height: 16px; accent-color: var(--accent); }
@@ -453,6 +463,7 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
 <script src="/lib/universe.js"></script>
 <script src="/lib/scan.js"></script>
 <script src="/lib/fundamentals.js"></script>
+<script src="/lib/events.js"></script>
 <script>
 // ────────────────────────── 저장소 ──────────────────────────
 const store = {
@@ -552,7 +563,27 @@ async function ensureFund(sym) {
   fund[sym] = { at: Date.now(), data };
   store.set('ssd.fund', fund);
 }
-const analyze = (d, h) => Signal.analyze(d, h, settings, fund[h.symbol] && fund[h.symbol].data);
+// 실적 일정 & 뉴스 (서버의 Finnhub 연동): 1시간 보관
+const events = store.get('ssd.events', {});   // symbol → { at, data }
+async function ensureEvents(sym) {
+  const c = events[sym];
+  if (c && Date.now() - c.at < 36e5) return;
+  let data;
+  try {
+    const res = await fetch(`/api/events?symbol=${encodeURIComponent(sym)}`, { headers: { 'x-app-password': cloud.pw } });
+    if (res.status === 404) data = { unavailable: true, reason: '서버 배포 환경에서만 사용할 수 있습니다 (로컬 모드).' };
+    else {
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || `오류 ${res.status}`);
+      data = j;
+    }
+  } catch (e) {
+    data = { unavailable: true, reason: `실적·뉴스를 불러오지 못했습니다 (${e.message})` };
+  }
+  events[sym] = { at: Date.now(), data };
+  store.set('ssd.events', events);
+}
+const analyze = (d, h) => Signal.analyze(d, h, settings, fund[h.symbol] && fund[h.symbol].data, events[h.symbol] && events[h.symbol].data);
 
 const icon = (key) => key === 'buy' ? '▲' : key === 'sell' ? '▼' : '●';
 
@@ -617,8 +648,8 @@ async function refreshAll(silent = false) {
     }
   };
   await Promise.all([worker(), worker(), worker(), worker()]);
-  let f = 0;   // 재무 정보 (7일 캐시가 있으면 요청하지 않음)
-  const fworker = async () => { while (f < syms.length) await ensureFund(syms[f++]); };
+  let f = 0;   // 재무 정보(7일 캐시)·실적 & 뉴스(1시간 캐시) — 캐시가 있으면 요청하지 않음
+  const fworker = async () => { while (f < syms.length) { const s = syms[f++]; await Promise.all([ensureFund(s), ensureEvents(s)]); } };
   await Promise.all([fworker(), fworker(), fworker()]);
   reanalyze();
   recordHistory();
@@ -686,7 +717,7 @@ function renderTable(area, list, watch) {
       <td><div class="sym">${esc(h.symbol)}</div><div class="sym-name">${esc(d.name)}</div></td>
       <td class="r num">${usd(a.price)}<div class="num ${cls(a.chg)}" style="font-size:12px">${pct(a.chgPct)}</div></td>
       ${middle}
-      <td><span class="badge ${a.key}">${icon(a.key)} ${a.label}</span><span class="gs">${a.grade}등급 · ${a.score}점</span>${changed}</td>
+      <td><span class="badge ${a.key}">${icon(a.key)} ${a.label}</span><span class="gs">${a.grade}등급 · ${a.score}점</span>${earnBadge(a, true)}${changed}</td>
       ${editBtn(h)}</tr>`;
   }).join('');
   const head = watch
@@ -699,6 +730,36 @@ function renderTable(area, list, watch) {
     if (window.innerWidth <= 900) document.getElementById('detailCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }));
   area.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openHolding(b.dataset.edit)));
+}
+
+// ────────────────────────── 실적 & 뉴스 표시 ──────────────────────────
+const mdShort = (iso) => { const [, m, d] = iso.split('-'); return `${+m}/${+d}`; };
+const ddayText = (n) => n === 0 ? '오늘' : n > 0 ? `D-${n}` : `${-n}일 전`;
+function earnBadge(a, short) {
+  const n = a.events && a.events.next;
+  if (!n || n.daysTo < 0 || n.daysTo > 60) return '';
+  const soon = n.daysTo <= 7;
+  return short
+    ? (soon ? `<span class="gs warn">📅 실적 ${ddayText(n.daysTo)}</span>` : '')
+    : `<span class="tag ${soon ? 'warn' : ''}">📅 실적 ${mdShort(n.date)} ${ddayText(n.daysTo)}</span>`;
+}
+function eventsSection(a) {
+  const ev = a.events;
+  if (!ev.available) return `<div class="div-card"><div class="div-text">${esc(ev.reason || '실적·뉴스를 불러오는 중입니다.')}</div></div>`;
+  const n = ev.next, l = ev.last, nw = ev.news;
+  const ago = (t) => { const m = Math.round((Date.now() - t * 1000) / 6e4); return m < 60 ? `${m}분 전` : m < 1440 ? `${Math.round(m / 60)}시간 전` : `${Math.round(m / 1440)}일 전`; };
+  const safeUrl = (u) => /^https?:\/\//i.test(u || '') ? u : '#';
+  return `<div class="metrics">
+      <div class="metric"><div class="k">다음 실적 발표</div><div class="v num">${n ? `${mdShort(n.date)} <span class="${n.daysTo <= 7 ? 'down' : ''}">${ddayText(n.daysTo)}</span>` : '미정'}</div><div class="k">${n ? `${n.hourText}${n.year ? ` · ${n.year} Q${n.quarter}` : ''}` : ''}</div></div>
+      <div class="metric"><div class="k">예상 EPS</div><div class="v num">${n && n.epsEstimate != null ? '$' + n.epsEstimate.toFixed(2) : '–'}</div></div>
+      <div class="metric"><div class="k">지난 실적 서프라이즈</div><div class="v num ${cls(l && l.surprisePct)}">${l && l.surprisePct != null ? pct(l.surprisePct, 1) : '–'}</div><div class="k">${l ? `${mdShort(l.date)} · EPS $${l.epsActual.toFixed(2)}` : ''}</div></div>
+      <div class="metric"><div class="k">발표 후 주가 반응</div><div class="v num ${cls(l && l.reaction)}">${l && l.reaction != null ? pct(l.reaction, 1) : '–'}</div></div>
+    </div>
+    <div class="news-head">최근 7일 뉴스 ${nw.total}건 · <span class="badge ${nw.label === '긍정' ? 'buy' : nw.label === '부정' ? 'sell' : 'hold'}">심리 ${nw.label}</span> <span class="count">긍정 ${nw.pos} · 부정 ${nw.neg} · 중립 ${nw.neu}</span></div>
+    ${nw.total ? `<ul class="news">${nw.items.map(x => `<li class="${x.tone}">
+      <i>${x.tone === 'pos' ? '▲' : x.tone === 'neg' ? '▼' : '●'}</i>
+      <div><a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener noreferrer">${esc(x.headline)}</a>
+      <div class="k">${esc(x.source || '')} · ${ago(x.t)}${x.tags.length ? ` · ${x.tags.map(esc).join(', ')}` : ''}</div></div></li>`).join('')}</ul>` : '<div class="count" style="margin-top:6px">최근 7일간 관련 뉴스가 없습니다.</div>'}`;
 }
 
 let chartTab = store.get('ssd.chartTab', 'price');
@@ -716,7 +777,7 @@ function renderDetail() {
 
   card.innerHTML = `<div class="detail">
     <div class="detail-top">
-      <div><div class="t">${esc(h.symbol)}${h.watch ? '<span class="tag">관심 종목</span>' : ''}</div><div class="n">${esc(d.name)} · ${live && d.priceTime ? `${d.priceTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 실시간 가격 기준` : `${a.date.toLocaleDateString('ko-KR')} 종가 기준`}</div></div>
+      <div><div class="t">${esc(h.symbol)}${h.watch ? '<span class="tag">관심 종목</span>' : ''}${earnBadge(a)}</div><div class="n">${esc(d.name)} · ${live && d.priceTime ? `${d.priceTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 실시간 가격 기준` : `${a.date.toLocaleDateString('ko-KR')} 종가 기준`}</div></div>
       <div><div class="price-big num">${usd(a.price)}</div><div class="num ${cls(a.chg)}" style="text-align:right">${signed(a.chg)} (${pct(a.chgPct)})</div></div>
     </div>
     <div class="verdict ${a.key}">
@@ -763,6 +824,9 @@ function renderDetail() {
       <div class="metric"><div class="k">배당수익률</div><div class="v num">${a.fin.divYield > 0 ? a.fin.divYield.toFixed(2) + '%' : '무배당'}</div></div>
     </div>` : `<div class="div-card"><div class="div-text">${esc(a.fin.reason || '재무 정보를 불러오는 중입니다.')}${a.fin.divYield > 0 ? ` · 배당수익률 ${a.fin.divYield.toFixed(2)}%` : ''}</div></div>`}
 
+    <div class="section-title">실적 & 뉴스 <span class="count">${a.events.available ? 'Finnhub · 뉴스는 키워드 기준 분류' : '연동 안 됨'}</span></div>
+    ${eventsSection(a)}
+
     <div class="section-title">기술적 지표 & MDD 차트 <span class="count">최근 6개월</span></div>
     <div class="ctabs">${CHART_TABS.map(([k, l]) => `<button type="button" data-ct="${k}" class="${k === chartTab ? 'on' : ''}">${l}</button>`).join('')}</div>
     <div class="chart-box" id="chartBox"><div class="legend" id="legend"></div><svg class="chart" id="mainSvg"></svg><div class="tooltip" id="tip"></div></div>
@@ -774,7 +838,10 @@ function renderDetail() {
         <div class="rp"><h4>MDD 낙폭 & 반등 분석</h4><p>${esc(rp.mdd)}</p></div>
         <div class="rp"><h4>기술적 지표 & 다이버전스</h4><p>${esc(rp.tech)}</p></div>
       </div>
-      <div class="rp"><h4>펀더멘털 건전성 & 밸류에이션</h4><p>${esc(rp.fund)}</p></div>
+      <div class="rp2">
+        <div class="rp"><h4>펀더멘털 건전성 & 밸류에이션</h4><p>${esc(rp.fund)}</p></div>
+        <div class="rp"><h4>실적 일정 & 뉴스 심리</h4><p>${esc(rp.events)}</p></div>
+      </div>
       <div class="rp"><h4>매매 시나리오</h4><p>${esc(rp.plan)}</p></div>
       <div class="rp risk"><h4>⚠ 유의할 위험 요인</h4><ul>${rp.risks.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
     </div>
@@ -949,7 +1016,7 @@ document.getElementById('formHolding').addEventListener('submit', async (e) => {
     data[sym] = await fetchSeries(sym);
     holdings.push({ symbol: sym, ...entry }); saveHoldings();
     selected = sym; dlg.close(); reanalyze(); recordHistory(); render();
-    ensureFund(sym).then(() => { reanalyze(); render(); });
+    Promise.all([ensureFund(sym), ensureEvents(sym)]).then(() => { reanalyze(); render(); });
   } catch (ex) { err.textContent = ex.message; }
   finally { save.disabled = false; save.textContent = '저장'; }
 });
@@ -1205,7 +1272,7 @@ async function addWatch(sym) {
   holdings.push({ symbol: sym, watch: true, shares: 0, avgCost: 0 });
   saveHoldings(); renderDiscover(); render();
   try { data[sym] = await fetchSeries(sym); delete errors[sym]; } catch (e) { errors[sym] = e.message; }
-  await ensureFund(sym);
+  await Promise.all([ensureFund(sym), ensureEvents(sym)]);
   reanalyze(); recordHistory(); render();
 }
 
