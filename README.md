@@ -180,7 +180,7 @@ Vercel 없이 시놀로지 NAS 등 Docker 에서 돌릴 수 있습니다. 자세
 - `server/index.js` — 외부 패키지 없는 Node 서버. `api/*.js` 를 그대로 실행하고, Vercel Cron 대신
   평일 21:45 UTC 토스 동기화 → 22:00 알림 → 22:15 스캔을 실행합니다 (`TOSS_SYNC_UTC`·`ALERT_UTC`·`SCAN_UTC` 로 변경 가능).
 - 저장소는 Upstash 대신 `DATA_DIR`(/data 볼륨)의 JSON 파일을 씁니다.
-- `BASE_PATH=/finance` 로 하위 경로 서비스가 가능합니다 (화면은 상대 경로로 파일을 불러옵니다).
+- 기본은 서브도메인(예: finance.hosu.me) 서비스이고, 필요하면 `BASE_PATH=/finance` 로 하위 경로에서도 돌릴 수 있습니다.
 - **토스증권 보유 종목 동기화** (`lib/toss.js`, `api/toss.js`): `TOSS_CLIENT_ID`/`TOSS_CLIENT_SECRET` 이 있으면 켜집니다.
   토스는 허용 IP 에서만 응답하므로 IP 가 고정된 곳(집 NAS)에서만 동작합니다. 조회 API 만 쓰고 주문 API 는 부르지 않습니다.
 - 설정 예시: `.env.example`, 구성: `Dockerfile`, `docker-compose.yml`

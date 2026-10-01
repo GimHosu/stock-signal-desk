@@ -1,6 +1,6 @@
 # 시놀로지 NAS(Docker) 배포 안내
 
-DS220+ · Container Manager 기준입니다. 앱은 `https://hosu.me/finance/` 로 서비스한다고 가정합니다.
+DS220+ · Container Manager 기준입니다. 앱 주소는 `https://finance.hosu.me/` 입니다.
 
 ## 0. 준비물
 
@@ -21,7 +21,7 @@ DS220+ · Container Manager 기준입니다. 앱은 `https://hosu.me/finance/` �
    (File Station 에서 점으로 시작하는 파일이 안 보이면: 설정 → '숨김 파일 표시')
 2. `.env` 를 텍스트 편집기(DSM 의 Text Editor 패키지 또는 PC에서 편집 후 업로드)로 열어 값을 채웁니다.
    - `APP_PASSWORD` : 앱 비밀번호
-   - `BASE_PATH=/finance`, `APP_URL=https://hosu.me/finance/`
+   - `APP_URL=https://finance.hosu.me/` (`BASE_PATH` 는 비워 둡니다)
    - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `FINNHUB_API_KEY` (지금 Vercel 에 넣은 값)
    - `TOSS_CLIENT_ID`, `TOSS_CLIENT_SECRET` (토스 연동 시)
 
@@ -33,24 +33,25 @@ DS220+ · Container Manager 기준입니다. 앱은 `https://hosu.me/finance/` �
 2. 프로젝트 이름: `stock-signal-desk`, 경로: `docker/stock-signal-desk` 선택
 3. 원본: **"기존 docker-compose.yml 사용"** → 다음 → (웹 포털 설정은 건너뛰기) → 완료
 4. 이미지 빌드(1~2분) 후 컨테이너가 실행됩니다. 상태가 **정상(healthy)** 이 되면 성공입니다.
-5. 집 안에서 먼저 확인: `http://NAS내부IP:18080/finance/` → 비밀번호 입력 창이 뜨면 성공
+5. 집 안에서 먼저 확인: `http://NAS내부IP:18080/` → 비밀번호 입력 창이 뜨면 성공
 
-## 4. 외부 주소 연결 (hosu.me/finance)
+## 4. 외부 주소 연결 (finance.hosu.me)
 
-DSM 기본 **역방향 프록시**는 경로(/finance) 단위가 아니라 호스트명·포트 단위로만 규칙을 만듭니다.
-지금 hosu.me 를 어떤 방식으로 서비스하는지에 따라 둘 중 하나를 고르세요.
+1. **DNS 레코드 추가** — hosu.me 도메인을 관리하는 곳(도메인 구입처 또는 Cloudflare 등)에서
+   `finance` 라는 이름으로 **CNAME → hosu.me** 레코드를 추가합니다. (hosu.me 와 같은 NAS 를 가리키게)
+   몇 분~몇 시간 뒤 `finance.hosu.me` 가 NAS 로 연결됩니다.
+2. **역방향 프록시 규칙** — 제어판 → 로그인 포털 → 고급 → **역방향 프록시** → 생성
+   - 이름: `stock-signal-desk`
+   - 소스: 프로토콜 **HTTPS** · 호스트 이름 **finance.hosu.me** · 포트 **443** (HSTS 사용 체크 권장)
+   - 대상: 프로토콜 **HTTP** · 호스트 이름 **localhost** · 포트 **18080**
+3. **HTTPS 인증서** — 제어판 → 보안 → 인증서
+   - hosu.me 용 Let's Encrypt 인증서가 이미 있으면 **수정 → 주체 대체 이름**에 `finance.hosu.me` 를 추가해 갱신하거나,
+     **추가 → 새 인증서 → Let's Encrypt** 로 `finance.hosu.me` 인증서를 새로 받습니다.
+     (Let's Encrypt 발급에는 공유기에서 80 포트가 NAS 로 열려 있어야 합니다)
+   - 같은 화면의 **설정** 버튼 → 서비스 목록에서 `finance.hosu.me` 에 방금 인증서를 지정합니다.
+4. 휴대폰 데이터(LTE/5G)로 `https://finance.hosu.me` 에 접속해 비밀번호 입력 창이 뜨면 완료입니다.
 
-**A. hosu.me 를 이미 다른 웹 서버(Web Station, Nginx Proxy Manager 등)가 받고 있다면**
-그 서버에 `/finance/` 경로 규칙을 추가해 `http://127.0.0.1:18080` 으로 넘기면 됩니다.
-(앱은 경로 앞부분이 붙어 오든 지워져 오든 모두 동작합니다)
-
-**B. 가장 간단한 방법 — 서브도메인 사용 (예: finance.hosu.me)**
-1. DNS 에 `finance.hosu.me` 를 NAS 주소로 추가
-2. 제어판 → 로그인 포털 → 고급 → **역방향 프록시** → 생성
-   - 소스: HTTPS · `finance.hosu.me` · 443
-   - 대상: HTTP · `localhost` · 18080
-3. 제어판 → 보안 → 인증서에서 `finance.hosu.me` 인증서 발급(Let's Encrypt) 후 이 규칙에 연결
-4. 이 경우 `.env` 의 `BASE_PATH` 는 비우고 `APP_URL=https://finance.hosu.me/` 로 바꾸세요.
+공유기에서 443 포트가 NAS 로 열려 있어야 합니다 (hosu.me 를 이미 외부에서 쓰고 있다면 되어 있을 가능성이 큽니다).
 
 ## 5. 기존 데이터 옮기기
 
@@ -85,6 +86,7 @@ DSM 기본 **역방향 프록시**는 경로(/finance) 단위가 아니라 호�
 | 증상 | 확인할 것 |
 |---|---|
 | 컨테이너가 계속 재시작 | Container Manager → 컨테이너 → 로그. `.env` 오타·누락 확인 |
-| `/finance` 에서 화면이 깨짐 | `.env` 의 `BASE_PATH` 와 프록시 경로가 같은지 확인 |
+| 화면이 하얗거나 깨짐 | `.env` 의 `BASE_PATH` 가 비어 있는지 확인 (서브도메인은 비워 둠) |
 | 아침 알림이 안 옴 | 설정 창 '마지막 자동 점검' 기록 · 컨테이너 로그의 `[daily-alert]` 줄 |
+| 접속이 안 됨 | DNS(CNAME) 반영 여부, 역방향 프록시 대상 포트(18080), 공유기 443 포트 |
 | 토스 동기화 403 | 토스 허용 IP 에 설정 창에 표시된 공인 IP 등록 |
