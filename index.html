@@ -538,7 +538,7 @@ table.disc .why div { white-space: nowrap; overflow: hidden; text-overflow: elli
 <dialog id="dlgLock">
   <form method="dialog" id="formLock">
     <h3>비밀번호 입력</h3>
-    <p style="margin:0;color:var(--text-2);font-size:13px">종목 목록이 서버에 저장되어 있습니다. Vercel에 설정한 <b>APP_PASSWORD</b>를 입력하세요. 이 기기에서는 다음부터 자동으로 로그인됩니다.</p>
+    <p style="margin:0;color:var(--text-2);font-size:13px">종목 목록이 서버에 저장되어 있습니다. 서버 설정(<b>APP_PASSWORD</b>)에 넣은 앱 비밀번호를 입력하세요. 이 기기에서는 다음부터 자동으로 로그인됩니다.</p>
     <div class="field"><label for="lPw">비밀번호</label><input id="lPw" type="password" required autocomplete="current-password"></div>
     <div class="err" id="lErr"></div>
     <div class="dlg-actions">
@@ -1308,7 +1308,7 @@ async function alertAction(action, btn) {
     const { status, j } = await cloud.req('POST', 'api/alert', { action });
     if (j.needChatId) {
       out.textContent = j.chats.length
-        ? `봇과 대화한 채팅을 찾았습니다:\n${j.chats.map(c => `${c.id}  (${c.name})`).join('\n')}\n이 숫자를 Vercel 환경변수 TELEGRAM_CHAT_ID 에 넣고 Redeploy 한 뒤 다시 눌러 주세요.`
+        ? `봇과 대화한 채팅을 찾았습니다:\n${j.chats.map(c => `${c.id}  (${c.name})`).join('\n')}\n이 숫자를 서버 설정의 TELEGRAM_CHAT_ID 에 넣고 서버를 다시 시작한 뒤 눌러 주세요. (NAS: .env 수정 후 컨테이너 재시작)`
         : '봇과의 대화를 찾지 못했습니다. 텔레그램에서 내 봇을 열고 아무 메시지나 보낸 뒤 다시 눌러 주세요.';
     } else if (!j.ok) out.textContent = `실패: ${j.error || status}`;
     else if (action === 'test') out.textContent = '텔레그램으로 테스트 알림을 보냈습니다.';
