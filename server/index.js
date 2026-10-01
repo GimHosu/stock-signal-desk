@@ -8,6 +8,12 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// Windows 에서 편집한 .env 는 줄 끝에 CR(\r)이나 공백·따옴표가 붙을 수 있어 값이 달라진다 → 시작할 때 정리
+for (const k of Object.keys(process.env)) {
+  const v = process.env[k], t = v.trim().replace(/^(["'])(.*)\1$/, '$2');
+  if (t !== v) process.env[k] = t;
+}
+
 const ROOT = path.join(__dirname, '..');
 const PORT = Number(process.env.PORT) || 8080;
 const BASE = (process.env.BASE_PATH || '').replace(/\/+$/, '');               // 하위 경로로 서비스할 때 (예: /finance)
@@ -115,5 +121,8 @@ server.listen(PORT, () => {
   log(`Stock Signal Desk: http://0.0.0.0:${PORT}${BASE || ''}/  (데이터: ${process.env.DATA_DIR})`);
   const miss = require('../lib/server.js').missingConfig();
   if (miss.length) log('주의 — 설정 누락:', miss.join(', '));
+  // .env 가 제대로 읽혔는지 확인용 (값은 출력하지 않음)
+  const on = (k) => (process.env[k] ? '설정됨' : '없음');
+  log(`설정 확인 — 비밀번호: ${on('APP_PASSWORD')} · 텔레그램: ${on('TELEGRAM_BOT_TOKEN')}/${on('TELEGRAM_CHAT_ID')} · Finnhub: ${on('FINNHUB_API_KEY')} · 토스: ${on('TOSS_CLIENT_ID')}/${on('TOSS_CLIENT_SECRET')}`);
 });
 for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { log('종료'); server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 3000); });
